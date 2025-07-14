@@ -108,7 +108,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-tokens",
         type=int,
-        default=get_env_value("MAX_TOKENS", 32768, int),
+        default=get_env_value("MAX_TOKENS", 32000, int),
         help="Maximum token size (default: from env or 32768)",
     )
 
@@ -166,6 +166,24 @@ def parse_args() -> argparse.Namespace:
         help="Number of most similar results to return (default: from env or 60)",
     )
     parser.add_argument(
+        "--chunk-top-k",
+        type=int,
+        default=get_env_value("CHUNK_TOP_K", 15, int),
+        help="Number of text chunks to retrieve initially from vector search (default: from env or 15)",
+    )
+    parser.add_argument(
+        "--chunk-rerank-top-k",
+        type=int,
+        default=get_env_value("CHUNK_RERANK_TOP_K", 5, int),
+        help="Number of text chunks to keep after reranking (default: from env or 5)",
+    )
+    parser.add_argument(
+        "--enable-rerank",
+        action="store_true",
+        default=get_env_value("ENABLE_RERANK", False, bool),
+        help="Enable rerank functionality (default: from env or False)",
+    )
+    parser.add_argument(
         "--cosine-threshold",
         type=float,
         default=get_env_value("COSINE_THRESHOLD", 0.2, float),
@@ -184,10 +202,10 @@ def parse_args() -> argparse.Namespace:
 
     # Namespace
     parser.add_argument(
-        "--namespace-prefix",
+        "--workspace",
         type=str,
-        default=get_env_value("NAMESPACE_PREFIX", ""),
-        help="Prefix of the namespace",
+        default=get_env_value("WORKSPACE", ""),
+        help="Default workspace for all storage",
     )
 
     parser.add_argument(
@@ -244,10 +262,16 @@ def parse_args() -> argparse.Namespace:
     # Get MAX_PARALLEL_INSERT from environment
     args.max_parallel_insert = get_env_value("MAX_PARALLEL_INSERT", 2, int)
 
+    # Get MAX_GRAPH_NODES from environment
+    args.max_graph_nodes = get_env_value("MAX_GRAPH_NODES", 1000, int)
+
     # Handle openai-ollama special case
     if args.llm_binding == "openai-ollama":
         args.llm_binding = "openai"
         args.embedding_binding = "ollama"
+
+    # Ollama ctx_num
+    args.ollama_num_ctx = get_env_value("OLLAMA_NUM_CTX", 32768, int)
 
     args.llm_binding_host = get_env_value(
         "LLM_BINDING_HOST", get_default_host(args.llm_binding)
@@ -291,6 +315,11 @@ def parse_args() -> argparse.Namespace:
     args.token_expire_hours = get_env_value("TOKEN_EXPIRE_HOURS", 48, int)
     args.guest_token_expire_hours = get_env_value("GUEST_TOKEN_EXPIRE_HOURS", 24, int)
     args.jwt_algorithm = get_env_value("JWT_ALGORITHM", "HS256")
+
+    # Rerank model configuration
+    args.rerank_model = get_env_value("RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
+    args.rerank_binding_host = get_env_value("RERANK_BINDING_HOST", None)
+    args.rerank_binding_api_key = get_env_value("RERANK_BINDING_API_KEY", None)
 
     ollama_server_infos.LIGHTRAG_MODEL = args.simulated_model_name
 

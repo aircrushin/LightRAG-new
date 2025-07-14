@@ -15,7 +15,6 @@ from ..base import (
     DocStatus,
     DocStatusStorage,
 )
-from ..namespace import NameSpace, is_namespace
 from ..utils import logger, compute_mdhash_id
 from ..types import KnowledgeGraph, KnowledgeGraphNode, KnowledgeGraphEdge
 from ..constants import GRAPH_FIELD_SEP
@@ -26,6 +25,7 @@ if not pm.is_installed("pymongo"):
     pm.install("pymongo")
 
 from pymongo import AsyncMongoClient  # type: ignore
+from pymongo import UpdateOne  # type: ignore
 from pymongo.asynchronous.database import AsyncDatabase  # type: ignore
 from pymongo.asynchronous.collection import AsyncCollection  # type: ignore
 from pymongo.operations import SearchIndexModel  # type: ignore
@@ -34,8 +34,6 @@ from pymongo.errors import PyMongoError  # type: ignore
 config = configparser.ConfigParser()
 config.read("config.ini", "utf-8")
 
-# Get maximum number of graph nodes from environment variable, default is 1000
-MAX_GRAPH_NODES = int(os.getenv("MAX_GRAPH_NODES", 1000))
 GRAPH_BFS_MODE = os.getenv("MONGO_GRAPH_BFS_MODE", "bidirectional")
 
 
@@ -82,7 +80,39 @@ class MongoKVStorage(BaseKVStorage):
     db: AsyncDatabase = field(default=None)
     _data: AsyncCollection = field(default=None)
 
+    def __init__(self, namespace, global_config, embedding_func, workspace=None):
+        super().__init__(
+            namespace=namespace,
+            workspace=workspace or "",
+            global_config=global_config,
+            embedding_func=embedding_func,
+        )
+        self.__post_init__()
+
     def __post_init__(self):
+        # Check for MONGODB_WORKSPACE environment variable first (higher priority)
+        # This allows administrators to force a specific workspace for all MongoDB storage instances
+        mongodb_workspace = os.environ.get("MONGODB_WORKSPACE")
+        if mongodb_workspace and mongodb_workspace.strip():
+            # Use environment variable value, overriding the passed workspace parameter
+            effective_workspace = mongodb_workspace.strip()
+            logger.info(
+                f"Using MONGODB_WORKSPACE environment variable: '{effective_workspace}' (overriding passed workspace: '{self.workspace}')"
+            )
+        else:
+            # Use the workspace parameter passed during initialization
+            effective_workspace = self.workspace
+            if effective_workspace:
+                logger.debug(
+                    f"Using passed workspace parameter: '{effective_workspace}'"
+                )
+
+        # Build namespace with workspace prefix for data isolation
+        if effective_workspace:
+            self.namespace = f"{effective_workspace}_{self.namespace}"
+            logger.debug(f"Final namespace with workspace prefix: '{self.namespace}'")
+        # When workspace is empty, keep the original namespace unchanged
+
         self._collection_name = self.namespace
 
     async def initialize(self):
@@ -98,21 +128,22 @@ class MongoKVStorage(BaseKVStorage):
             self._data = None
 
     async def get_by_id(self, id: str) -> dict[str, Any] | None:
-        if id == "default":
-            # Find all documents with _id starting with "default_"
-            cursor = self._data.find({"_id": {"$regex": "^default_"}})
-            result = {}
-            async for doc in cursor:
-                # Use the complete _id as key
-                result[doc["_id"]] = doc
-            return result if result else None
-        else:
-            # Original behavior for non-"default" ids
-            return await self._data.find_one({"_id": id})
+        # Unified handling for flattened keys
+        doc = await self._data.find_one({"_id": id})
+        if doc:
+            # Ensure time fields are present, provide default values for old data
+            doc.setdefault("create_time", 0)
+            doc.setdefault("update_time", 0)
+        return doc
 
     async def get_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
         cursor = self._data.find({"_id": {"$in": ids}})
-        return await cursor.to_list()
+        docs = await cursor.to_list()
+        # Ensure time fields are present for all documents
+        for doc in docs:
+            doc.setdefault("create_time", 0)
+            doc.setdefault("update_time", 0)
+        return docs
 
     async def filter_keys(self, keys: set[str]) -> set[str]:
         cursor = self._data.find({"_id": {"$in": list(keys)}}, {"_id": 1})
@@ -129,47 +160,52 @@ class MongoKVStorage(BaseKVStorage):
         result = {}
         async for doc in cursor:
             doc_id = doc.pop("_id")
+            # Ensure time fields are present for all documents
+            doc.setdefault("create_time", 0)
+            doc.setdefault("update_time", 0)
             result[doc_id] = doc
         return result
 
     async def upsert(self, data: dict[str, dict[str, Any]]) -> None:
-        logger.info(f"Inserting {len(data)} to {self.namespace}")
+        logger.debug(f"Inserting {len(data)} to {self.namespace}")
         if not data:
             return
 
-        if is_namespace(self.namespace, NameSpace.KV_STORE_LLM_RESPONSE_CACHE):
-            update_tasks: list[Any] = []
-            for mode, items in data.items():
-                for k, v in items.items():
-                    key = f"{mode}_{k}"
-                    data[mode][k]["_id"] = f"{mode}_{k}"
-                    update_tasks.append(
-                        self._data.update_one(
-                            {"_id": key}, {"$setOnInsert": v}, upsert=True
-                        )
-                    )
-            await asyncio.gather(*update_tasks)
-        else:
-            update_tasks = []
-            for k, v in data.items():
-                data[k]["_id"] = k
-                update_tasks.append(
-                    self._data.update_one({"_id": k}, {"$set": v}, upsert=True)
-                )
-            await asyncio.gather(*update_tasks)
+        # Unified handling for all namespaces with flattened keys
+        # Use bulk_write for better performance
 
-    async def get_by_mode_and_id(self, mode: str, id: str) -> Union[dict, None]:
-        if is_namespace(self.namespace, NameSpace.KV_STORE_LLM_RESPONSE_CACHE):
-            res = {}
-            v = await self._data.find_one({"_id": mode + "_" + id})
-            if v:
-                res[id] = v
-                logger.debug(f"llm_response_cache find one by:{id}")
-                return res
-            else:
-                return None
-        else:
-            return None
+        operations = []
+        current_time = int(time.time())  # Get current Unix timestamp
+
+        for k, v in data.items():
+            # For text_chunks namespace, ensure llm_cache_list field exists
+            if self.namespace.endswith("text_chunks"):
+                if "llm_cache_list" not in v:
+                    v["llm_cache_list"] = []
+
+            # Create a copy of v for $set operation, excluding create_time to avoid conflicts
+            v_for_set = v.copy()
+            v_for_set["_id"] = k  # Use flattened key as _id
+            v_for_set["update_time"] = current_time  # Always update update_time
+
+            # Remove create_time from $set to avoid conflict with $setOnInsert
+            v_for_set.pop("create_time", None)
+
+            operations.append(
+                UpdateOne(
+                    {"_id": k},
+                    {
+                        "$set": v_for_set,  # Update all fields except create_time
+                        "$setOnInsert": {
+                            "create_time": current_time
+                        },  # Set create_time only on insert
+                    },
+                    upsert=True,
+                )
+            )
+
+        if operations:
+            await self._data.bulk_write(operations)
 
     async def index_done_callback(self) -> None:
         # Mongo handles persistence automatically
@@ -209,8 +245,8 @@ class MongoKVStorage(BaseKVStorage):
             return False
 
         try:
-            # Build regex pattern to match documents with the specified modes
-            pattern = f"^({'|'.join(modes)})_"
+            # Build regex pattern to match flattened key format: mode:cache_type:hash
+            pattern = f"^({'|'.join(modes)}):"
             result = await self._data.delete_many({"_id": {"$regex": pattern}})
             logger.info(f"Deleted {result.deleted_count} documents by modes: {modes}")
             return True
@@ -246,7 +282,39 @@ class MongoDocStatusStorage(DocStatusStorage):
     db: AsyncDatabase = field(default=None)
     _data: AsyncCollection = field(default=None)
 
+    def __init__(self, namespace, global_config, embedding_func, workspace=None):
+        super().__init__(
+            namespace=namespace,
+            workspace=workspace or "",
+            global_config=global_config,
+            embedding_func=embedding_func,
+        )
+        self.__post_init__()
+
     def __post_init__(self):
+        # Check for MONGODB_WORKSPACE environment variable first (higher priority)
+        # This allows administrators to force a specific workspace for all MongoDB storage instances
+        mongodb_workspace = os.environ.get("MONGODB_WORKSPACE")
+        if mongodb_workspace and mongodb_workspace.strip():
+            # Use environment variable value, overriding the passed workspace parameter
+            effective_workspace = mongodb_workspace.strip()
+            logger.info(
+                f"Using MONGODB_WORKSPACE environment variable: '{effective_workspace}' (overriding passed workspace: '{self.workspace}')"
+            )
+        else:
+            # Use the workspace parameter passed during initialization
+            effective_workspace = self.workspace
+            if effective_workspace:
+                logger.debug(
+                    f"Using passed workspace parameter: '{effective_workspace}'"
+                )
+
+        # Build namespace with workspace prefix for data isolation
+        if effective_workspace:
+            self.namespace = f"{effective_workspace}_{self.namespace}"
+            logger.debug(f"Final namespace with workspace prefix: '{self.namespace}'")
+        # When workspace is empty, keep the original namespace unchanged
+
         self._collection_name = self.namespace
 
     async def initialize(self):
@@ -274,11 +342,14 @@ class MongoDocStatusStorage(DocStatusStorage):
         return data - existing_ids
 
     async def upsert(self, data: dict[str, dict[str, Any]]) -> None:
-        logger.info(f"Inserting {len(data)} to {self.namespace}")
+        logger.debug(f"Inserting {len(data)} to {self.namespace}")
         if not data:
             return
         update_tasks: list[Any] = []
         for k, v in data.items():
+            # Ensure chunks_list field exists and is an array
+            if "chunks_list" not in v:
+                v["chunks_list"] = []
             data[k]["_id"] = k
             update_tasks.append(
                 self._data.update_one({"_id": k}, {"$set": v}, upsert=True)
@@ -311,6 +382,7 @@ class MongoDocStatusStorage(DocStatusStorage):
                 updated_at=doc.get("updated_at"),
                 chunks_count=doc.get("chunks_count", -1),
                 file_path=doc.get("file_path", doc["_id"]),
+                chunks_list=doc.get("chunks_list", []),
             )
             for doc in result
         }
@@ -357,12 +429,36 @@ class MongoGraphStorage(BaseGraphStorage):
     # edge collection storing source_node_id, target_node_id, and edge_properties
     edgeCollection: AsyncCollection = field(default=None)
 
-    def __init__(self, namespace, global_config, embedding_func):
+    def __init__(self, namespace, global_config, embedding_func, workspace=None):
         super().__init__(
             namespace=namespace,
+            workspace=workspace or "",
             global_config=global_config,
             embedding_func=embedding_func,
         )
+        # Check for MONGODB_WORKSPACE environment variable first (higher priority)
+        # This allows administrators to force a specific workspace for all MongoDB storage instances
+        mongodb_workspace = os.environ.get("MONGODB_WORKSPACE")
+        if mongodb_workspace and mongodb_workspace.strip():
+            # Use environment variable value, overriding the passed workspace parameter
+            effective_workspace = mongodb_workspace.strip()
+            logger.info(
+                f"Using MONGODB_WORKSPACE environment variable: '{effective_workspace}' (overriding passed workspace: '{self.workspace}')"
+            )
+        else:
+            # Use the workspace parameter passed during initialization
+            effective_workspace = self.workspace
+            if effective_workspace:
+                logger.debug(
+                    f"Using passed workspace parameter: '{effective_workspace}'"
+                )
+
+        # Build namespace with workspace prefix for data isolation
+        if effective_workspace:
+            self.namespace = f"{effective_workspace}_{self.namespace}"
+            logger.debug(f"Final namespace with workspace prefix: '{self.namespace}'")
+        # When workspace is empty, keep the original namespace unchanged
+
         self._collection_name = self.namespace
         self._edge_collection_name = f"{self._collection_name}_edges"
 
@@ -785,7 +881,7 @@ class MongoGraphStorage(BaseGraphStorage):
         )
 
     async def get_knowledge_graph_all_by_degree(
-        self, max_depth: int = 3, max_nodes: int = MAX_GRAPH_NODES
+        self, max_depth: int, max_nodes: int
     ) -> KnowledgeGraph:
         """
         It's possible that the node with one or multiple relationships is retrieved,
@@ -863,9 +959,9 @@ class MongoGraphStorage(BaseGraphStorage):
         node_labels: list[str],
         seen_nodes: set[str],
         result: KnowledgeGraph,
-        depth: int = 0,
-        max_depth: int = 3,
-        max_nodes: int = MAX_GRAPH_NODES,
+        depth: int,
+        max_depth: int,
+        max_nodes: int,
     ) -> KnowledgeGraph:
         if depth > max_depth or len(result.nodes) > max_nodes:
             return result
@@ -908,9 +1004,9 @@ class MongoGraphStorage(BaseGraphStorage):
     async def get_knowledge_subgraph_bidirectional_bfs(
         self,
         node_label: str,
-        depth=0,
-        max_depth: int = 3,
-        max_nodes: int = MAX_GRAPH_NODES,
+        depth: int,
+        max_depth: int,
+        max_nodes: int,
     ) -> KnowledgeGraph:
         seen_nodes = set()
         seen_edges = set()
@@ -940,7 +1036,7 @@ class MongoGraphStorage(BaseGraphStorage):
         return result
 
     async def get_knowledge_subgraph_in_out_bound_bfs(
-        self, node_label: str, max_depth: int = 3, max_nodes: int = MAX_GRAPH_NODES
+        self, node_label: str, max_depth: int, max_nodes: int
     ) -> KnowledgeGraph:
         seen_nodes = set()
         seen_edges = set()
@@ -1054,7 +1150,7 @@ class MongoGraphStorage(BaseGraphStorage):
         self,
         node_label: str,
         max_depth: int = 3,
-        max_nodes: int = MAX_GRAPH_NODES,
+        max_nodes: int = None,
     ) -> KnowledgeGraph:
         """
         Retrieve a connected subgraph of nodes where the label includes the specified `node_label`.
@@ -1062,7 +1158,7 @@ class MongoGraphStorage(BaseGraphStorage):
         Args:
             node_label: Label of the starting node, * means all nodes
             max_depth: Maximum depth of the subgraph, Defaults to 3
-            max_nodes: Maxiumu nodes to return, Defaults to 1000
+            max_nodes: Maximum nodes to return, Defaults to global_config max_graph_nodes
 
         Returns:
             KnowledgeGraph object containing nodes and edges, with an is_truncated flag
@@ -1086,6 +1182,13 @@ class MongoGraphStorage(BaseGraphStorage):
         C → B
         C → D
         """
+        # Use global_config max_graph_nodes as default if max_nodes is None
+        if max_nodes is None:
+            max_nodes = self.global_config.get("max_graph_nodes", 1000)
+        else:
+            # Limit max_nodes to not exceed global_config max_graph_nodes
+            max_nodes = min(max_nodes, self.global_config.get("max_graph_nodes", 1000))
+
         result = KnowledgeGraph()
         start = time.perf_counter()
 
@@ -1220,8 +1323,52 @@ class MongoGraphStorage(BaseGraphStorage):
 class MongoVectorDBStorage(BaseVectorStorage):
     db: AsyncDatabase | None = field(default=None)
     _data: AsyncCollection | None = field(default=None)
+    _index_name: str = field(default="", init=False)
+
+    def __init__(
+        self, namespace, global_config, embedding_func, workspace=None, meta_fields=None
+    ):
+        super().__init__(
+            namespace=namespace,
+            workspace=workspace or "",
+            global_config=global_config,
+            embedding_func=embedding_func,
+            meta_fields=meta_fields or set(),
+        )
+        self.__post_init__()
 
     def __post_init__(self):
+        # Check for MONGODB_WORKSPACE environment variable first (higher priority)
+        # This allows administrators to force a specific workspace for all MongoDB storage instances
+        mongodb_workspace = os.environ.get("MONGODB_WORKSPACE")
+        if mongodb_workspace and mongodb_workspace.strip():
+            # Use environment variable value, overriding the passed workspace parameter
+            effective_workspace = mongodb_workspace.strip()
+            logger.info(
+                f"Using MONGODB_WORKSPACE environment variable: '{effective_workspace}' (overriding passed workspace: '{self.workspace}')"
+            )
+        else:
+            # Use the workspace parameter passed during initialization
+            effective_workspace = self.workspace
+            if effective_workspace:
+                logger.debug(
+                    f"Using passed workspace parameter: '{effective_workspace}'"
+                )
+
+        # Build namespace with workspace prefix for data isolation
+        if effective_workspace:
+            self.namespace = f"{effective_workspace}_{self.namespace}"
+            logger.debug(f"Final namespace with workspace prefix: '{self.namespace}'")
+        # When workspace is empty, keep the original namespace unchanged
+
+        # Set index name based on workspace for backward compatibility
+        if effective_workspace:
+            # Use collection-specific index name for workspaced collections to avoid conflicts
+            self._index_name = f"vector_knn_index_{self.namespace}"
+        else:
+            # Keep original index name for backward compatibility with existing deployments
+            self._index_name = "vector_knn_index"
+
         kwargs = self.global_config.get("vector_db_storage_cls_kwargs", {})
         cosine_threshold = kwargs.get("cosine_better_than_threshold")
         if cosine_threshold is None:
@@ -1251,13 +1398,11 @@ class MongoVectorDBStorage(BaseVectorStorage):
     async def create_vector_index_if_not_exists(self):
         """Creates an Atlas Vector Search index."""
         try:
-            index_name = "vector_knn_index"
-
             indexes_cursor = await self._data.list_search_indexes()
             indexes = await indexes_cursor.to_list(length=None)
             for index in indexes:
-                if index["name"] == index_name:
-                    logger.debug("vector index already exist")
+                if index["name"] == self._index_name:
+                    logger.info(f"vector index {self._index_name} already exist")
                     return
 
             search_index_model = SearchIndexModel(
@@ -1271,18 +1416,22 @@ class MongoVectorDBStorage(BaseVectorStorage):
                         }
                     ]
                 },
-                name=index_name,
+                name=self._index_name,
                 type="vectorSearch",
             )
 
             await self._data.create_search_index(search_index_model)
-            logger.info("Vector index created successfully.")
+            logger.info(f"Vector index {self._index_name} created successfully.")
 
-        except PyMongoError as _:
-            logger.debug("vector index already exist")
+        except PyMongoError as e:
+            error_msg = f"Error creating vector index {self._index_name}: {e}"
+            logger.error(error_msg)
+            raise SystemExit(
+                f"Failed to create MongoDB vector index. Program cannot continue. {error_msg}"
+            )
 
     async def upsert(self, data: dict[str, dict[str, Any]]) -> None:
-        logger.info(f"Inserting {len(data)} to {self.namespace}")
+        logger.debug(f"Inserting {len(data)} to {self.namespace}")
         if not data:
             return
 
@@ -1334,7 +1483,7 @@ class MongoVectorDBStorage(BaseVectorStorage):
         pipeline = [
             {
                 "$vectorSearch": {
-                    "index": "vector_knn_index",  # Ensure this matches the created index name
+                    "index": self._index_name,  # Use stored index name for consistency
                     "path": "vector",
                     "queryVector": query_vector,
                     "numCandidates": 100,  # Adjust for performance
@@ -1371,7 +1520,7 @@ class MongoVectorDBStorage(BaseVectorStorage):
         Args:
             ids: List of vector IDs to be deleted
         """
-        logger.info(f"Deleting {len(ids)} vectors from {self.namespace}")
+        logger.debug(f"Deleting {len(ids)} vectors from {self.namespace}")
         if not ids:
             return
 

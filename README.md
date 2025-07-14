@@ -89,6 +89,8 @@ The LightRAG Server is designed to provide Web UI and API support. The Web UI fa
 
 ```bash
 pip install "lightrag-hku[api]"
+cp env.example .env
+lightrag-server
 ```
 
 * Installation from Source
@@ -99,6 +101,8 @@ cd LightRAG
 # create a Python virtual enviroment if neccesary
 # Install in editable mode with API support
 pip install -e ".[api]"
+cp env.example .env
+lightrag-server
 ```
 
 * Launching the LightRAG Server with Docker Compose
@@ -149,7 +153,7 @@ curl https://raw.githubusercontent.com/gusye1234/nano-graphrag/main/tests/mock_d
 python examples/lightrag_openai_demo.py
 ```
 
-For a streaming response implementation example, please see `examples/lightrag_openai_compatible_demo.py`. Prior to execution, ensure you modify the sample code’s LLM and embedding configurations accordingly.
+For a streaming response implementation example, please see `examples/lightrag_openai_compatible_demo.py`. Prior to execution, ensure you modify the sample code's LLM and embedding configurations accordingly.
 
 **Note 1**: When running the demo program, please be aware that different test scripts may use different embedding models. If you switch to a different embedding model, you must clear the data directory (`./dickens`); otherwise, the program may encounter errors. If you wish to retain the LLM cache, you can preserve the `kv_store_llm_response_cache.json` file while clearing the data directory.
 
@@ -235,6 +239,7 @@ A full list of LightRAG init parameters:
 | **Parameter** | **Type** | **Explanation** | **Default** |
 |--------------|----------|-----------------|-------------|
 | **working_dir** | `str` | Directory where the cache will be stored | `lightrag_cache+timestamp` |
+| **workspace** | str | Workspace name for data isolation between different LightRAG Instances |  |
 | **kv_storage** | `str` | Storage type for documents and text chunks. Supported types: `JsonKVStorage`,`PGKVStorage`,`RedisKVStorage`,`MongoKVStorage` | `JsonKVStorage` |
 | **vector_storage** | `str` | Storage type for embedding vectors. Supported types: `NanoVectorDBStorage`,`PGVectorStorage`,`MilvusVectorDBStorage`,`ChromaVectorDBStorage`,`FaissVectorDBStorage`,`MongoVectorDBStorage`,`QdrantVectorDBStorage` | `NanoVectorDBStorage` |
 | **graph_storage** | `str` | Storage type for graph edges and nodes. Supported types: `NetworkXStorage`,`Neo4JStorage`,`PGGraphStorage`,`AGEStorage` | `NetworkXStorage` |
@@ -252,7 +257,7 @@ A full list of LightRAG init parameters:
 | **embedding_func_max_async** | `int` | Maximum number of concurrent asynchronous embedding processes | `16` |
 | **llm_model_func** | `callable` | Function for LLM generation | `gpt_4o_mini_complete` |
 | **llm_model_name** | `str` | LLM model name for generation | `meta-llama/Llama-3.2-1B-Instruct` |
-| **llm_model_max_token_size** | `int` | Maximum token size for LLM generation (affects entity relation summaries) | `32768`（default value changed by env var MAX_TOKENS) |
+| **llm_model_max_token_size** | `int` | Maximum tokens send to LLM to generate entity relation summaries | `32000`（default value changed by env var MAX_TOKENS) |
 | **llm_model_max_async** | `int` | Maximum number of concurrent asynchronous LLM processes | `4`（default value changed by env var MAX_ASYNC) |
 | **llm_model_kwargs** | `dict` | Additional parameters for LLM generation | |
 | **vector_db_storage_cls_kwargs** | `dict` | Additional parameters for vector database, like setting the threshold for nodes and relations retrieval | cosine_better_than_threshold: 0.2（default value changed by env var COSINE_THRESHOLD) |
@@ -295,6 +300,16 @@ class QueryParam:
 
     top_k: int = int(os.getenv("TOP_K", "60"))
     """Number of top items to retrieve. Represents entities in 'local' mode and relationships in 'global' mode."""
+
+    chunk_top_k: int = int(os.getenv("CHUNK_TOP_K", "5"))
+    """Number of text chunks to retrieve initially from vector search.
+    If None, defaults to top_k value.
+    """
+
+    chunk_rerank_top_k: int = int(os.getenv("CHUNK_RERANK_TOP_K", "5"))
+    """Number of text chunks to keep after reranking.
+    If None, keeps all chunks returned from initial retrieval.
+    """
 
     max_token_for_text_unit: int = int(os.getenv("MAX_TOKEN_TEXT_CHUNK", "4000"))
     """Maximum number of tokens allowed for each retrieved text chunk."""
@@ -819,6 +834,8 @@ For production level scenarios you will most likely want to leverage an enterpri
 
 <details>
 <summary> <b>Using Faiss for Storage</b> </summary>
+You must manually install faiss-cpu or faiss-gpu before using FAISS vector db.
+Manually install `faiss-cpu` or `faiss-gpu` before using FAISS vector db.
 
 - Install the required dependencies:
 
@@ -853,6 +870,52 @@ rag = LightRAG(
 ```
 
 </details>
+
+<details>
+<summary> <b>Using Memgraph for Storage</b> </summary>
+
+* Memgraph is a high-performance, in-memory graph database compatible with the Neo4j Bolt protocol.
+* You can run Memgraph locally using Docker for easy testing:
+* See: https://memgraph.com/download
+
+```python
+export MEMGRAPH_URI="bolt://localhost:7687"
+
+# Setup logger for LightRAG
+setup_logger("lightrag", level="INFO")
+
+# When you launch the project, override the default KG: NetworkX
+# by specifying kg="MemgraphStorage".
+
+# Note: Default settings use NetworkX
+# Initialize LightRAG with Memgraph implementation.
+async def initialize_rag():
+    rag = LightRAG(
+        working_dir=WORKING_DIR,
+        llm_model_func=gpt_4o_mini_complete,  # Use gpt_4o_mini_complete LLM model
+        graph_storage="MemgraphStorage", #<-----------override KG default
+    )
+
+    # Initialize database connections
+    await rag.initialize_storages()
+    # Initialize pipeline status for document processing
+    await initialize_pipeline_status()
+
+    return rag
+```
+
+</details>
+
+### Data Isolation Between LightRAG Instances
+
+The `workspace` parameter ensures data isolation between different LightRAG instances. Once initialized, the `workspace` is immutable and cannot be changed.Here is how workspaces are implemented for different types of storage:
+
+- **For local file-based databases, data isolation is achieved through workspace subdirectories:** `JsonKVStorage`, `JsonDocStatusStorage`, `NetworkXStorage`, `NanoVectorDBStorage`, `FaissVectorDBStorage`.
+- **For databases that store data in collections, it's done by adding a workspace prefix to the collection name:** `RedisKVStorage`, `RedisDocStatusStorage`, `MilvusVectorDBStorage`, `QdrantVectorDBStorage`, `MongoKVStorage`, `MongoDocStatusStorage`, `MongoVectorDBStorage`, `MongoGraphStorage`, `PGGraphStorage`.
+- **For relational databases, data isolation is achieved by adding a `workspace` field to the tables for logical data separation:** `PGKVStorage`, `PGVectorStorage`, `PGDocStatusStorage`.
+- **For the Neo4j graph database, logical data isolation is achieved through labels:** `Neo4JStorage`
+
+To maintain compatibility with legacy data, the default workspace for PostgreSQL is `default` and for Neo4j is `base` when no workspace is configured. For all external storages, the system provides dedicated workspace environment variables to override the common `WORKSPACE` environment variable configuration. These storage-specific workspace environment variables are: `REDIS_WORKSPACE`, `MILVUS_WORKSPACE`, `QDRANT_WORKSPACE`, `MONGODB_WORKSPACE`, `POSTGRES_WORKSPACE`, `NEO4J_WORKSPACE`.
 
 ## Edit Entities and Relations
 

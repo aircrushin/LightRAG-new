@@ -79,7 +79,18 @@ const TYPE_SYNONYMS: Record<string, string> = {
   'group': 'group',
   '群组': 'group',
   'community': 'group',
-  '社区': 'group'
+  '社区': 'group',
+
+  'road_section': 'road_section',
+  '路段': 'road_section',
+  'maintenance_activity': 'maintenance_activity',
+  '养护活动': 'maintenance_activity',
+  'pavement_condition': 'pavement_condition',
+  '路面状况': 'pavement_condition',
+  'material': 'material',
+  '材料': 'material',
+  'weather_condition': 'weather_condition',
+  '天气状况': 'weather_condition',
 };
 
 // 节点类型到颜色的映射
@@ -97,6 +108,11 @@ const NODE_TYPE_COLORS: Record<string, string> = {
   'weapon': '#4421af', // DeepPurple
   'object': '#00cc00', // Green
   'group': '#0f558a', // NavyBlue
+  'road_section': '#A0522D',      // Sienna
+  'maintenance_activity': '#FFA500', // Orange
+  'pavement_condition': '#808080',   // Gray
+  'material': '#2E8B57',             // SeaGreen
+  'weather_condition': '#87CEEB',    // SkyBlue
 };
 
 // Extended colors pool - Used for unknown node types

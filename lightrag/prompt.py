@@ -4,12 +4,12 @@ from typing import Any
 
 PROMPTS: dict[str, Any] = {}
 
-PROMPTS["DEFAULT_LANGUAGE"] = "English"
+PROMPTS["DEFAULT_LANGUAGE"] = "Chinese"
 PROMPTS["DEFAULT_TUPLE_DELIMITER"] = "<|>"
 PROMPTS["DEFAULT_RECORD_DELIMITER"] = "##"
 PROMPTS["DEFAULT_COMPLETION_DELIMITER"] = "<|COMPLETE|>"
 
-PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person", "geo", "event", "category"]
+PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person", "geo", "event", "category", "road_section", "maintenance_activity", "pavement_condition", "equipment", "material", "weather_condition"]
 
 PROMPTS["DEFAULT_USER_PROMPT"] = "n/a"
 
@@ -130,6 +130,33 @@ Output:
 ("relationship"{tuple_delimiter}"Noah Carter"{tuple_delimiter}"Carbon-Fiber Spikes"{tuple_delimiter}"Noah Carter used carbon-fiber spikes to enhance performance during the race."{tuple_delimiter}"athletic equipment, performance boost"{tuple_delimiter}7){record_delimiter}
 ("relationship"{tuple_delimiter}"World Athletics Federation"{tuple_delimiter}"100m Sprint Record"{tuple_delimiter}"The World Athletics Federation is responsible for validating and recognizing new sprint records."{tuple_delimiter}"sports regulation, record certification"{tuple_delimiter}9){record_delimiter}
 ("content_keywords"{tuple_delimiter}"athletics, sprinting, record-breaking, sports technology, competition"){completion_delimiter}
+#############################""",
+    """Example 4:
+
+Entity_types: [road_section, maintenance_activity, pavement_condition, equipment, material, weather_condition, organization, person, geo]
+Text:
+```
+On March 15th, the maintenance crew from City Road Services repaired a section of Main Street between 5th and 7th Avenue that had developed multiple potholes after heavy rainfall. The team used a 10-ton asphalt paver to lay a 5 cm hot mix asphalt overlay. John Doe supervised the operation, ensuring proper compaction with a vibratory roller despite intermittent drizzle.
+```
+
+Output:
+("entity"{tuple_delimiter}"Main Street (5th-7th Ave)"{tuple_delimiter}"road_section"{tuple_delimiter}"A deteriorated portion of Main Street located between 5th and 7th Avenue."){record_delimiter}
+("entity"{tuple_delimiter}"Potholes"{tuple_delimiter}"pavement_condition"{tuple_delimiter}"Multiple potholes developed on the road section due to heavy rainfall."){record_delimiter}
+("entity"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"maintenance_activity"{tuple_delimiter}"Activity involving filling potholes and resurfacing the road section."){record_delimiter}
+("entity"{tuple_delimiter}"Asphalt Paver"{tuple_delimiter}"equipment"{tuple_delimiter}"A 10-ton machine used to lay asphalt evenly on the roadway."){record_delimiter}
+("entity"{tuple_delimiter}"Hot Mix Asphalt"{tuple_delimiter}"material"{tuple_delimiter}"5 cm layer of hot mix asphalt used as overlay material."){record_delimiter}
+("entity"{tuple_delimiter}"Drizzle"{tuple_delimiter}"weather_condition"{tuple_delimiter}"Light rainfall conditions present during repair."){record_delimiter}
+("entity"{tuple_delimiter}"City Road Services"{tuple_delimiter}"organization"{tuple_delimiter}"Municipal department responsible for road maintenance."){record_delimiter}
+("entity"{tuple_delimiter}"John Doe"{tuple_delimiter}"person"{tuple_delimiter}"Supervisor overseeing the maintenance activity."){record_delimiter}
+("entity"{tuple_delimiter}"5th and 7th Avenue"{tuple_delimiter}"geo"{tuple_delimiter}"Geographical reference for the repaired road section."){record_delimiter}
+("relationship"{tuple_delimiter}"City Road Services"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"City Road Services executed the maintenance activity."{tuple_delimiter}"service provider, execution"{tuple_delimiter}9){record_delimiter}
+("relationship"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"Main Street (5th-7th Ave)"{tuple_delimiter}"The repair activity targeted this specific road section."{tuple_delimiter}"target, location"{tuple_delimiter}10){record_delimiter}
+("relationship"{tuple_delimiter}"Potholes"{tuple_delimiter}"Main Street (5th-7th Ave)"{tuple_delimiter}"Potholes were present on this road section."{tuple_delimiter}"road defect, location"{tuple_delimiter}8){record_delimiter}
+("relationship"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"Asphalt Paver"{tuple_delimiter}"The asphalt paver was used during the repair."{tuple_delimiter}"equipment usage"{tuple_delimiter}8){record_delimiter}
+("relationship"{tuple_delimiter}"Hot Mix Asphalt"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"Material applied as an overlay in the repair activity."{tuple_delimiter}"material application"{tuple_delimiter}8){record_delimiter}
+("relationship"{tuple_delimiter}"Drizzle"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"Light rain influenced working conditions during maintenance."{tuple_delimiter}"environment condition"{tuple_delimiter}6){record_delimiter}
+("relationship"{tuple_delimiter}"John Doe"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"John Doe supervised the maintenance activity."{tuple_delimiter}"supervision"{tuple_delimiter}7){record_delimiter}
+("content_keywords"{tuple_delimiter}"road maintenance, pothole repair, asphalt overlay, equipment usage, weather impact"){completion_delimiter}
 #############################""",
 ]
 

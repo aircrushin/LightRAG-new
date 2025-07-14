@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "lightrag-hku"
+version = "0.1.0"
+description = "LightRAG: Simple and Fast Retrieval-Augmented Generation"
+authors = ["LightRAG Team"]
+readme = "README.md"
+packages = [{include = "lightrag"}]
+
+[tool.poetry.dependencies]
+python = "^3.10" 
+aiohttp = "*"
+configparser = "*"
+future = "*"
+pandas = ">=2.0.0"
+pipmaster = "*"
+pydantic = "*"
+python-dotenv = "*"
+pyuca = "*"
+setuptools = "*"
+tenacity = "*"
+tiktoken = "*"
+xlsxwriter = ">=3.1.0"
+
+# API相关依赖（可选）
+fastapi = {version = "*", optional = true}
+uvicorn = {version = "*", optional = true}
+gunicorn = {version = "*", optional = true}
+
+[tool.poetry.extras]
+api = ["fastapi", "uvicorn", "gunicorn"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+lightrag-server = "lightrag.api.lightrag_server:main"

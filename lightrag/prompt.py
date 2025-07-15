@@ -57,106 +57,71 @@ Output:"""
 PROMPTS["entity_extraction_examples"] = [
     """Example 1:
 
-Entity_types: [person, technology, mission, organization, location]
-Text:
-```
-while Alex clenched his jaw, the buzz of frustration dull against the backdrop of Taylor's authoritarian certainty. It was this competitive undercurrent that kept him alert, the sense that his and Jordan's shared commitment to discovery was an unspoken rebellion against Cruz's narrowing vision of control and order.
-
-Then Taylor did something unexpected. They paused beside Jordan and, for a moment, observed the device with something akin to reverence. "If this tech can be understood..." Taylor said, their voice quieter, "It could change the game for us. For all of us."
-
-The underlying dismissal earlier seemed to falter, replaced by a glimpse of reluctant respect for the gravity of what lay in their hands. Jordan looked up, and for a fleeting heartbeat, their eyes locked with Taylor's, a wordless clash of wills softening into an uneasy truce.
-
-It was a small transformation, barely perceptible, but one that Alex noted with an inward nod. They had all been brought here by different paths
-```
-
-Output:
-("entity"{tuple_delimiter}"Alex"{tuple_delimiter}"person"{tuple_delimiter}"Alex is a character who experiences frustration and is observant of the dynamics among other characters."){record_delimiter}
-("entity"{tuple_delimiter}"Taylor"{tuple_delimiter}"person"{tuple_delimiter}"Taylor is portrayed with authoritarian certainty and shows a moment of reverence towards a device, indicating a change in perspective."){record_delimiter}
-("entity"{tuple_delimiter}"Jordan"{tuple_delimiter}"person"{tuple_delimiter}"Jordan shares a commitment to discovery and has a significant interaction with Taylor regarding a device."){record_delimiter}
-("entity"{tuple_delimiter}"Cruz"{tuple_delimiter}"person"{tuple_delimiter}"Cruz is associated with a vision of control and order, influencing the dynamics among other characters."){record_delimiter}
-("entity"{tuple_delimiter}"The Device"{tuple_delimiter}"technology"{tuple_delimiter}"The Device is central to the story, with potential game-changing implications, and is revered by Taylor."){record_delimiter}
-("relationship"{tuple_delimiter}"Alex"{tuple_delimiter}"Taylor"{tuple_delimiter}"Alex is affected by Taylor's authoritarian certainty and observes changes in Taylor's attitude towards the device."{tuple_delimiter}"power dynamics, perspective shift"{tuple_delimiter}7){record_delimiter}
-("relationship"{tuple_delimiter}"Alex"{tuple_delimiter}"Jordan"{tuple_delimiter}"Alex and Jordan share a commitment to discovery, which contrasts with Cruz's vision."{tuple_delimiter}"shared goals, rebellion"{tuple_delimiter}6){record_delimiter}
-("relationship"{tuple_delimiter}"Taylor"{tuple_delimiter}"Jordan"{tuple_delimiter}"Taylor and Jordan interact directly regarding the device, leading to a moment of mutual respect and an uneasy truce."{tuple_delimiter}"conflict resolution, mutual respect"{tuple_delimiter}8){record_delimiter}
-("relationship"{tuple_delimiter}"Jordan"{tuple_delimiter}"Cruz"{tuple_delimiter}"Jordan's commitment to discovery is in rebellion against Cruz's vision of control and order."{tuple_delimiter}"ideological conflict, rebellion"{tuple_delimiter}5){record_delimiter}
-("relationship"{tuple_delimiter}"Taylor"{tuple_delimiter}"The Device"{tuple_delimiter}"Taylor shows reverence towards the device, indicating its importance and potential impact."{tuple_delimiter}"reverence, technological significance"{tuple_delimiter}9){record_delimiter}
-("content_keywords"{tuple_delimiter}"power dynamics, ideological conflict, discovery, rebellion"){completion_delimiter}
-#############################""",
-    """Example 2:
-
-Entity_types: [company, index, commodity, market_trend, economic_policy, biological]
-Text:
-```
-Stock markets faced a sharp downturn today as tech giants saw significant declines, with the Global Tech Index dropping by 3.4% in midday trading. Analysts attribute the selloff to investor concerns over rising interest rates and regulatory uncertainty.
-
-Among the hardest hit, Nexon Technologies saw its stock plummet by 7.8% after reporting lower-than-expected quarterly earnings. In contrast, Omega Energy posted a modest 2.1% gain, driven by rising oil prices.
-
-Meanwhile, commodity markets reflected a mixed sentiment. Gold futures rose by 1.5%, reaching $2,080 per ounce, as investors sought safe-haven assets. Crude oil prices continued their rally, climbing to $87.60 per barrel, supported by supply constraints and strong demand.
-
-Financial experts are closely watching the Federal Reserve's next move, as speculation grows over potential rate hikes. The upcoming policy announcement is expected to influence investor confidence and overall market stability.
-```
-
-Output:
-("entity"{tuple_delimiter}"Global Tech Index"{tuple_delimiter}"index"{tuple_delimiter}"The Global Tech Index tracks the performance of major technology stocks and experienced a 3.4% decline today."){record_delimiter}
-("entity"{tuple_delimiter}"Nexon Technologies"{tuple_delimiter}"company"{tuple_delimiter}"Nexon Technologies is a tech company that saw its stock decline by 7.8% after disappointing earnings."){record_delimiter}
-("entity"{tuple_delimiter}"Omega Energy"{tuple_delimiter}"company"{tuple_delimiter}"Omega Energy is an energy company that gained 2.1% in stock value due to rising oil prices."){record_delimiter}
-("entity"{tuple_delimiter}"Gold Futures"{tuple_delimiter}"commodity"{tuple_delimiter}"Gold futures rose by 1.5%, indicating increased investor interest in safe-haven assets."){record_delimiter}
-("entity"{tuple_delimiter}"Crude Oil"{tuple_delimiter}"commodity"{tuple_delimiter}"Crude oil prices rose to $87.60 per barrel due to supply constraints and strong demand."){record_delimiter}
-("entity"{tuple_delimiter}"Market Selloff"{tuple_delimiter}"market_trend"{tuple_delimiter}"Market selloff refers to the significant decline in stock values due to investor concerns over interest rates and regulations."){record_delimiter}
-("entity"{tuple_delimiter}"Federal Reserve Policy Announcement"{tuple_delimiter}"economic_policy"{tuple_delimiter}"The Federal Reserve's upcoming policy announcement is expected to impact investor confidence and market stability."){record_delimiter}
-("relationship"{tuple_delimiter}"Global Tech Index"{tuple_delimiter}"Market Selloff"{tuple_delimiter}"The decline in the Global Tech Index is part of the broader market selloff driven by investor concerns."{tuple_delimiter}"market performance, investor sentiment"{tuple_delimiter}9){record_delimiter}
-("relationship"{tuple_delimiter}"Nexon Technologies"{tuple_delimiter}"Global Tech Index"{tuple_delimiter}"Nexon Technologies' stock decline contributed to the overall drop in the Global Tech Index."{tuple_delimiter}"company impact, index movement"{tuple_delimiter}8){record_delimiter}
-("relationship"{tuple_delimiter}"Gold Futures"{tuple_delimiter}"Market Selloff"{tuple_delimiter}"Gold prices rose as investors sought safe-haven assets during the market selloff."{tuple_delimiter}"market reaction, safe-haven investment"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"Federal Reserve Policy Announcement"{tuple_delimiter}"Market Selloff"{tuple_delimiter}"Speculation over Federal Reserve policy changes contributed to market volatility and investor selloff."{tuple_delimiter}"interest rate impact, financial regulation"{tuple_delimiter}7){record_delimiter}
-("content_keywords"{tuple_delimiter}"market downturn, investor sentiment, commodities, Federal Reserve, stock performance"){completion_delimiter}
-#############################""",
-    """Example 3:
-
-Entity_types: [economic_policy, athlete, event, location, record, organization, equipment]
-Text:
-```
-At the World Athletics Championship in Tokyo, Noah Carter broke the 100m sprint record using cutting-edge carbon-fiber spikes.
-```
-
-Output:
-("entity"{tuple_delimiter}"World Athletics Championship"{tuple_delimiter}"event"{tuple_delimiter}"The World Athletics Championship is a global sports competition featuring top athletes in track and field."){record_delimiter}
-("entity"{tuple_delimiter}"Tokyo"{tuple_delimiter}"location"{tuple_delimiter}"Tokyo is the host city of the World Athletics Championship."){record_delimiter}
-("entity"{tuple_delimiter}"Noah Carter"{tuple_delimiter}"athlete"{tuple_delimiter}"Noah Carter is a sprinter who set a new record in the 100m sprint at the World Athletics Championship."){record_delimiter}
-("entity"{tuple_delimiter}"100m Sprint Record"{tuple_delimiter}"record"{tuple_delimiter}"The 100m sprint record is a benchmark in athletics, recently broken by Noah Carter."){record_delimiter}
-("entity"{tuple_delimiter}"Carbon-Fiber Spikes"{tuple_delimiter}"equipment"{tuple_delimiter}"Carbon-fiber spikes are advanced sprinting shoes that provide enhanced speed and traction."){record_delimiter}
-("entity"{tuple_delimiter}"World Athletics Federation"{tuple_delimiter}"organization"{tuple_delimiter}"The World Athletics Federation is the governing body overseeing the World Athletics Championship and record validations."){record_delimiter}
-("relationship"{tuple_delimiter}"World Athletics Championship"{tuple_delimiter}"Tokyo"{tuple_delimiter}"The World Athletics Championship is being hosted in Tokyo."{tuple_delimiter}"event location, international competition"{tuple_delimiter}8){record_delimiter}
-("relationship"{tuple_delimiter}"Noah Carter"{tuple_delimiter}"100m Sprint Record"{tuple_delimiter}"Noah Carter set a new 100m sprint record at the championship."{tuple_delimiter}"athlete achievement, record-breaking"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"Noah Carter"{tuple_delimiter}"Carbon-Fiber Spikes"{tuple_delimiter}"Noah Carter used carbon-fiber spikes to enhance performance during the race."{tuple_delimiter}"athletic equipment, performance boost"{tuple_delimiter}7){record_delimiter}
-("relationship"{tuple_delimiter}"World Athletics Federation"{tuple_delimiter}"100m Sprint Record"{tuple_delimiter}"The World Athletics Federation is responsible for validating and recognizing new sprint records."{tuple_delimiter}"sports regulation, record certification"{tuple_delimiter}9){record_delimiter}
-("content_keywords"{tuple_delimiter}"athletics, sprinting, record-breaking, sports technology, competition"){completion_delimiter}
-#############################""",
-    """Example 4:
-
 Entity_types: [road_section, maintenance_activity, pavement_condition, equipment, material, weather_condition, organization, person, geo]
 Text:
 ```
-On March 15th, the maintenance crew from City Road Services repaired a section of Main Street between 5th and 7th Avenue that had developed multiple potholes after heavy rainfall. The team used a 10-ton asphalt paver to lay a 5 cm hot mix asphalt overlay. John Doe supervised the operation, ensuring proper compaction with a vibratory roller despite intermittent drizzle.
+3月15日，市道路服务处的维修人员对第五大道和第七大道之间的主干道进行了维修，该路段在暴雨后出现了多个坑洼。团队使用一台10吨的沥青摊铺机铺设了5厘米厚的热拌沥青罩面。尽管时有小雨，约翰·多伊还是监督了整个作业过程，确保了振动压路机的正常压实。
 ```
 
 Output:
-("entity"{tuple_delimiter}"Main Street (5th-7th Ave)"{tuple_delimiter}"road_section"{tuple_delimiter}"A deteriorated portion of Main Street located between 5th and 7th Avenue."){record_delimiter}
-("entity"{tuple_delimiter}"Potholes"{tuple_delimiter}"pavement_condition"{tuple_delimiter}"Multiple potholes developed on the road section due to heavy rainfall."){record_delimiter}
-("entity"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"maintenance_activity"{tuple_delimiter}"Activity involving filling potholes and resurfacing the road section."){record_delimiter}
-("entity"{tuple_delimiter}"Asphalt Paver"{tuple_delimiter}"equipment"{tuple_delimiter}"A 10-ton machine used to lay asphalt evenly on the roadway."){record_delimiter}
-("entity"{tuple_delimiter}"Hot Mix Asphalt"{tuple_delimiter}"material"{tuple_delimiter}"5 cm layer of hot mix asphalt used as overlay material."){record_delimiter}
-("entity"{tuple_delimiter}"Drizzle"{tuple_delimiter}"weather_condition"{tuple_delimiter}"Light rainfall conditions present during repair."){record_delimiter}
-("entity"{tuple_delimiter}"City Road Services"{tuple_delimiter}"organization"{tuple_delimiter}"Municipal department responsible for road maintenance."){record_delimiter}
-("entity"{tuple_delimiter}"John Doe"{tuple_delimiter}"person"{tuple_delimiter}"Supervisor overseeing the maintenance activity."){record_delimiter}
-("entity"{tuple_delimiter}"5th and 7th Avenue"{tuple_delimiter}"geo"{tuple_delimiter}"Geographical reference for the repaired road section."){record_delimiter}
-("relationship"{tuple_delimiter}"City Road Services"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"City Road Services executed the maintenance activity."{tuple_delimiter}"service provider, execution"{tuple_delimiter}9){record_delimiter}
-("relationship"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"Main Street (5th-7th Ave)"{tuple_delimiter}"The repair activity targeted this specific road section."{tuple_delimiter}"target, location"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"Potholes"{tuple_delimiter}"Main Street (5th-7th Ave)"{tuple_delimiter}"Potholes were present on this road section."{tuple_delimiter}"road defect, location"{tuple_delimiter}8){record_delimiter}
-("relationship"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"Asphalt Paver"{tuple_delimiter}"The asphalt paver was used during the repair."{tuple_delimiter}"equipment usage"{tuple_delimiter}8){record_delimiter}
-("relationship"{tuple_delimiter}"Hot Mix Asphalt"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"Material applied as an overlay in the repair activity."{tuple_delimiter}"material application"{tuple_delimiter}8){record_delimiter}
-("relationship"{tuple_delimiter}"Drizzle"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"Light rain influenced working conditions during maintenance."{tuple_delimiter}"environment condition"{tuple_delimiter}6){record_delimiter}
-("relationship"{tuple_delimiter}"John Doe"{tuple_delimiter}"Pothole Repair"{tuple_delimiter}"John Doe supervised the maintenance activity."{tuple_delimiter}"supervision"{tuple_delimiter}7){record_delimiter}
-("content_keywords"{tuple_delimiter}"road maintenance, pothole repair, asphalt overlay, equipment usage, weather impact"){completion_delimiter}
+("entity"<|>"主干道（第五至第七大道段）"<|>"road_section"<|>"位于第五大道和第七大道之间的一段破损的主干道。")##
+("entity"<|>"坑洼"<|>"pavement_condition"<|>"暴雨导致路段出现多个坑洼。")##
+("entity"<|>"坑洼修复"<|>"maintenance_activity"<|>"涉及填补坑洼和路面重铺的活动。")##
+("entity"<|>"沥青摊铺机"<|>"equipment"<|>"一台10吨的机器，用于在道路上均匀铺设沥青。")##
+("entity"<|>"热拌沥青"<|>"material"<|>"用作罩面材料的5厘米厚的热拌沥青。")##
+("entity"<|>"小雨"<|>"weather_condition"<|>"维修期间有小雨。")##
+("entity"<|>"市道路服务处"<|>"organization"<|>"负责道路养护的市政部门。")##
+("entity"<|>"约翰·多伊"<|>"person"<|>"监督养护活动的负责人。")##
+("entity"<|>"第五大道和第七大道"<|>"geo"<|>"维修路段的地理参考。")##
+("relationship"<|>"市道路服务处"<|>"坑洼修复"<|>"市道路服务处执行了养护活动。"<|>"服务提供商, 执行"<|>"9")##
+("relationship"<|>"坑洼修复"<|>"主干道（第五至第七大道段）"<|>"修复活动针对此特定路段。"<|>"目标, 位置"<|>"10")##
+("relationship"<|>"坑洼"<|>"主干道（第五至第七大道段）"<|>"该路段存在坑洼。"<|>"道路缺陷, 位置"<|>"8")##
+("relationship"<|>"坑洼修复"<|>"沥青摊铺机"<|>"维修期间使用了沥青摊铺机。"<|>"设备使用"<|>"8")##
+("relationship"<|>"热拌沥青"<|>"坑洼修复"<|>"在修复活动中用作罩面的材料。"<|>"材料应用"<|>"8")##
+("relationship"<|>"小雨"<|>"坑洼修复"<|>"小雨影响了养护期间的工作条件。"<|>"环境条件"<|>"6")##
+("relationship"<|>"约翰·多伊"<|>"坑洼修复"<|>"约翰·多伊监督了养护活动。"<|>"监督"<|>"7")##
+("content_keywords"<|>"道路养护, 坑洼修复, 沥青罩面, 设备使用, 天气影响")<|COMPLETE|>
+#############################""",
+    """Example 2:
+
+Entity_types: [road_section, maintenance_activity, pavement_condition, equipment, material, weather_condition]
+Text:
+```
+由于G15高速公路K10+200至K12+500段出现严重车辙，养护单位计划于2023年10月5日至10月10日夜间进行铣刨重铺。施工将使用维特根W2000大型铣刨机和福格勒摊铺机。预计将使用SBS改性沥青混凝土约500吨。期间天气预报为晴天，适合施工。
+```
+
+Output:
+("entity"<|>"G15高速公路K10+200至K12+500段"<|>"road_section"<|>"G15高速公路的一段，桩号范围从K10+200到K12+500。")##
+("entity"<|>"车辙"<|>"pavement_condition"<|>"路段出现严重的车辙病害。")##
+("entity"<|>"铣刨重铺"<|>"maintenance_activity"<|>"计划于2023年10月5日至10月10日夜间进行的养护活动，旨在修复车辙。")##
+("entity"<|>"维特根W2000大型铣刨机"<|>"equipment"<|>"用于清除旧路面的大型铣刨设备。")##
+("entity"<|>"福格勒摊铺机"<|>"equipment"<|>"用于铺设新沥青路面的设备。")##
+("entity"<|>"SBS改性沥青混凝土"<|>"material"<|>"本次维修工程计划使用的主要材料，预计用量500吨。")##
+("entity"<|>"晴天"<|>"weather_condition"<|>"施工期间的天气状况良好，适合沥青路面施工。")##
+("relationship"<|>"铣刨重铺"<|>"G15高速公路K10+200至K12+500段"<|>"铣刨重铺养护活动的目标路段。"<|>"养护对象, 位置"<|>"10")##
+("relationship"<|>"车辙"<|>"G15高速公路K10+200至K12+500段"<|>"车辙是该路段需要维修的原因。"<|>"病害, 位置"<|>"9")##
+("relationship"<|>"铣刨重铺"<|>"维特根W2000大型铣刨机"<|>"该设备将用于铣刨重铺工程。"<|>"设备使用"<|>"8")##
+("relationship"<|>"SBS改性沥青混凝土"<|>"铣刨重铺"<|>"该材料将用于铣刨重铺工程。"<|>"材料应用"<|>"8")##
+("relationship"<|>"晴天"<|>"铣刨重铺"<|>"良好的天气是施工的有利条件。"<|>"天气影响, 施工条件"<|>"7")##
+("content_keywords"<|>"高速公路养护, 车辙, 铣刨重铺, SBS改性沥青, 施工设备")<|COMPLETE|>
+#############################""",
+    """Example 3:
+
+Entity_types: [road_section, maintenance_activity, pavement_condition, material]
+Text:
+```
+为预防冬季桥梁结冰，养护团队在S20外环高速的跨海大桥上预撒了融雪剂。本次作业主要针对桥面及匝道，使用了环保型氯化钙融雪剂。
+```
+
+Output:
+("entity"<|>"S20外环高速跨海大桥"<|>"road_section"<|>"S20外环高速上的一座重要桥梁结构。")##
+("entity"<|>"桥面结冰"<|>"pavement_condition"<|>"冬季桥梁可能出现的潜在病害或危险状况。")##
+("entity"<|>"预撒融雪剂"<|>"maintenance_activity"<|>"为预防道路结冰而采取的预防性养护措施。")##
+("entity"<|>"环保型氯化钙融雪剂"<|>"material"<|>"用于本次预防性养护作业的材料。")##
+("relationship"<|>"预撒融雪剂"<|>"S20外环高速跨海大桥"<|>"在跨海大桥上实施了预撒融雪剂作业。"<|>"作业地点, 预防性养护"<|>"10")##
+("relationship"<|>"预撒融雪剂"<|>"桥面结冰"<|>"预撒融雪剂的目的是为了防止桥面结冰。"<|>"预防, 病害"<|>"9")##
+("relationship"<|>"环保型氯化钙融雪剂"<|>"预撒融雪剂"<|>"该材料被用于预撒融雪剂作业。"<|>"材料使用"<|>"8")##
+("content_keywords"<|>"桥梁养护, 预防性养护, 融雪剂, 冬季安全")<|COMPLETE|>
 #############################""",
 ]
 

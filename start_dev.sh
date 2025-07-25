@@ -2,7 +2,7 @@
 
 # Start the backend server in the background
 echo "Starting backend server..."
-python3 -m lightrag.api.lightrag_server &
+poetry run python -m lightrag.api.lightrag_server &
 BACKEND_PID=$!
 
 # Wait a few seconds for the backend to initialize
@@ -34,4 +34,4 @@ trap cleanup SIGINT SIGTERM
 
 # Wait for both processes to complete
 wait $BACKEND_PID
-wait $FRONTEND_PID 
+wait $FRONTEND_PID

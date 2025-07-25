@@ -91,6 +91,30 @@ const TYPE_SYNONYMS: Record<string, string> = {
   '材料': 'material',
   'weather_condition': 'weather_condition',
   '天气状况': 'weather_condition',
+
+  // Patent-related entity types
+  'patent': 'patent',
+  '专利': 'patent',
+  'invention': 'invention',
+  '发明': 'invention',
+  'claim': 'claim',
+  '权利要求': 'claim',
+  'technical_field': 'technical_field',
+  '技术领域': 'technical_field',
+  'background_art': 'background_art',
+  '背景技术': 'background_art',
+  'embodiment': 'embodiment',
+  '实施例': 'embodiment',
+  'inventor': 'inventor',
+  '发明人': 'inventor',
+  'applicant': 'applicant',
+  '申请人': 'applicant',
+  'prior_art': 'prior_art',
+  '现有技术': 'prior_art',
+  'technical_solution': 'technical_solution',
+  '技术方案': 'technical_solution',
+  'beneficial_effect': 'beneficial_effect',
+  '有益效果': 'beneficial_effect',
 };
 
 // 节点类型到颜色的映射
@@ -113,6 +137,19 @@ const NODE_TYPE_COLORS: Record<string, string> = {
   'pavement_condition': '#808080',   // Gray
   'material': '#2E8B57',             // SeaGreen
   'weather_condition': '#87CEEB',    // SkyBlue
+
+  // Patent-related entity type colors
+  'patent': '#FF6B35',               // Bright Orange
+  'invention': '#4ECDC4',            // Turquoise
+  'claim': '#45B7D1',               // Sky Blue
+  'technical_field': '#96CEB4',      // Mint Green
+  'background_art': '#FFEAA7',       // Light Yellow
+  'embodiment': '#DDA0DD',           // Plum
+  'inventor': '#98D8C8',             // Mint
+  'applicant': '#F7DC6F',            // Light Gold
+  'prior_art': '#BB8FCE',            // Light Purple
+  'technical_solution': '#85C1E9',   // Light Blue
+  'beneficial_effect': '#82E0AA',    // Light Green
 };
 
 // Extended colors pool - Used for unknown node types

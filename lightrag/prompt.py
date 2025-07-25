@@ -9,7 +9,7 @@ PROMPTS["DEFAULT_TUPLE_DELIMITER"] = "<|>"
 PROMPTS["DEFAULT_RECORD_DELIMITER"] = "##"
 PROMPTS["DEFAULT_COMPLETION_DELIMITER"] = "<|COMPLETE|>"
 
-PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person", "geo", "event", "category", "road_section", "maintenance_activity", "pavement_condition", "equipment", "material", "weather_condition"]
+PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person", "geo", "event", "category", "road_section", "maintenance_activity", "pavement_condition", "equipment", "material", "weather_condition", "patent", "invention", "claim", "technical_field", "background_art", "embodiment", "inventor", "applicant", "prior_art", "technical_solution", "beneficial_effect"]
 
 PROMPTS["DEFAULT_USER_PROMPT"] = "n/a"
 
@@ -19,10 +19,20 @@ Use {language} as output language.
 
 ---Steps---
 1. Identify all entities. For each identified entity, extract the following information:
-- entity_name: Name of the entity, use same language as input text. If English, capitalized the name.
+- entity_name: Name of the entity, use same language as input text. If English, capitalized the name. IMPORTANT: Remove any trailing numbers from entity names (e.g., "安全帽11" should be extracted as "安全帽", "helmet5" should be extracted as "helmet").
 - entity_type: One of the following types: [{entity_types}]
 - entity_description: Comprehensive description of the entity's attributes and activities
 Format each entity as ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>)
+
+    ### Patent-Specific Entity Extraction Guidelines
+When processing patent documents, pay special attention to:
+1. **Patent Structure Elements**: Identify and extract patent-specific sections like technical field, background art, technical solution, embodiments, and beneficial effects as separate entities.
+2. **Invention Hierarchy**: Distinguish between the main invention and specific embodiments or implementations.
+3. **Technical Relationships**: Extract relationships between technical components, their functions, and their advantages.
+4. **Legal Entities**: Clearly identify inventors, applicants, and their roles in the patent.
+5. **Prior Art References**: Extract references to existing technology and their relationships to the current invention.
+6. **Claim Structure**: Identify independent and dependent claims and their hierarchical relationships.
+7. **Technical Terms**: Extract domain-specific technical terms and their definitions or explanations.
 
 2. From the entities identified in step 1, identify all pairs of (source_entity, target_entity) that are *clearly related* to each other.
 For each pair of related entities, extract the following information:
@@ -32,6 +42,13 @@ For each pair of related entities, extract the following information:
 - relationship_strength: a numeric score indicating strength of the relationship between the source entity and target entity
 - relationship_keywords: one or more high-level key words that summarize the overarching nature of the relationship, focusing on concepts or themes rather than specific details
 Format each relationship as ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_strength>)
+
+### Patent Relationship Guidelines
+For patent documents, focus on:
+- **Technical relationships**: "implements", "improves", "comprises", "solves"
+- **Legal relationships**: "invented by", "applied by", "claims"
+- **Structural relationships**: "part of", "connected to", "includes"
+- **Functional relationships**: "enables", "prevents", "enhances"
 
 3. Identify high-level key words that summarize the main concepts, themes, or topics of the entire text. These should capture the overarching ideas present in the document.
 Format the content-level key words as ("content_keywords"{tuple_delimiter}<high_level_keywords>)
@@ -123,6 +140,59 @@ Output:
 ("relationship"<|>"环保型氯化钙融雪剂"<|>"预撒融雪剂"<|>"该材料被用于预撒融雪剂作业。"<|>"材料使用"<|>"8")##
 ("content_keywords"<|>"桥梁养护, 预防性养护, 融雪剂, 冬季安全")<|COMPLETE|>
 #############################""",
+    """Example 4:
+
+Entity_types: [patent, invention, claim, technical_field, background_art, embodiment, inventor, applicant, organization, technical_solution, beneficial_effect]
+Text:
+```
+本发明涉及道路养护技术领域，特别是一种智能路面检测装置及其检测方法。现有技术中，传统的路面检测主要依靠人工巡查，效率低下且存在安全隐患。本发明提供了一种基于激光扫描和图像识别的智能检测方案。该装置包括激光扫描仪、高清摄像头、数据处理单元和无线传输模块。通过激光扫描获取路面三维数据，结合图像识别算法自动识别路面病害。申请人为北京交通科技有限公司，发明人为张三、李四。本发明能够提高检测精度，降低人工成本，确保检测人员安全。
+```
+
+Output:
+("entity"<|>"智能路面检测装置"<|>"invention"<|>"一种基于激光扫描和图像识别技术的道路养护检测设备。")
+##
+("entity"<|>"道路养护技术"<|>"technical_field"<|>"本发明所属的技术领域，涉及道路维护和检测技术。")
+##
+("entity"<|>"人工巡查"<|>"background_art"<|>"传统的路面检测方法，存在效率低下和安全隐患的问题。")
+##
+("entity"<|>"激光扫描仪"<|>"embodiment"<|>"装置的核心组件之一，用于获取路面三维数据。")
+##
+("entity"<|>"高清摄像头"<|>"embodiment"<|>"装置的图像采集组件，配合激光扫描进行检测。")
+##
+("entity"<|>"数据处理单元"<|>"embodiment"<|>"负责处理激光扫描和图像数据的核心处理模块。")
+##
+("entity"<|>"无线传输模块"<|>"embodiment"<|>"用于数据传输的通信组件。")
+##
+("entity"<|>"激光扫描和图像识别"<|>"technical_solution"<|>"本发明采用的核心技术方案，结合激光扫描和图像识别算法。")
+##
+("entity"<|>"北京交通科技有限公司"<|>"applicant"<|>"本发明的申请人，负责专利申请。")
+##
+("entity"<|>"张三"<|>"inventor"<|>"本发明的发明人之一。")
+##
+("entity"<|>"李四"<|>"inventor"<|>"本发明的发明人之一。")
+##
+("entity"<|>"提高检测精度"<|>"beneficial_effect"<|>"本发明相比现有技术的优势之一。")
+##
+("entity"<|>"降低人工成本"<|>"beneficial_effect"<|>"本发明带来的经济效益。")
+##
+("entity"<|>"确保检测人员安全"<|>"beneficial_effect"<|>"本发明在安全方面的改进效果。")
+##
+("relationship"<|>"智能路面检测装置"<|>"道路养护技术"<|>"该发明属于道路养护技术领域。"<|>"技术归属"<|>"10")
+##
+("relationship"<|>"智能路面检测装置"<|>"人工巡查"<|>"该发明旨在解决传统人工巡查的问题。"<|>"技术改进"<|>"9")
+##
+("relationship"<|>"激光扫描仪"<|>"智能路面检测装置"<|>"激光扫描仪是该装置的核心组件。"<|>"组成部分"<|>"9")
+##
+("relationship"<|>"激光扫描和图像识别"<|>"智能路面检测装置"<|>"该技术方案是装置的核心工作原理。"<|>"技术实现"<|>"10")
+##
+("relationship"<|>"北京交通科技有限公司"<|>"智能路面检测装置"<|>"该公司是本发明的申请人。"<|>"知识产权"<|>"8")
+##
+("relationship"<|>"张三"<|>"智能路面检测装置"<|>"张三是该发明的发明人。"<|>"发明创造"<|>"8")
+##
+("relationship"<|>"提高检测精度"<|>"智能路面检测装置"<|>"该装置能够提高检测精度。"<|>"技术效果"<|>"9")
+##
+("content_keywords"<|>"智能检测, 道路养护, 激光扫描, 图像识别, 专利技术")<|COMPLETE|>
+#############################""",
 ]
 
 PROMPTS[
@@ -133,6 +203,16 @@ Please concatenate all of these into a single, comprehensive description. Make s
 If the provided descriptions are contradictory, please resolve the contradictions and provide a single, coherent summary.
 Make sure it is written in third person, and include the entity names so we the have full context.
 Use {language} as output language.
+
+## Patent Entity Summarization Guidelines
+When summarizing patent-related entities, ensure to:
+1. **Technical Specifications**: Include key technical parameters, dimensions, materials, and performance characteristics
+2. **Functional Description**: Clearly describe what the entity does, how it works, and its primary purpose
+3. **Structural Details**: Describe physical structure, components, and their arrangements
+4. **Advantages/Benefits**: Highlight improvements over existing technology and beneficial effects
+5. **Implementation Context**: Mention how the entity fits within the overall invention or system
+6. **Legal Context**: For legal entities (inventors, applicants), include their roles and contributions
+7. **Technical Relationships**: Describe how the entity relates to other components or processes
 
 #######
 ---Data---
@@ -148,10 +228,19 @@ MANY entities and relationships were missed in the last extraction.
 ---Remember Steps---
 
 1. Identify all entities. For each identified entity, extract the following information:
-- entity_name: Name of the entity, use same language as input text. If English, capitalized the name.
+- entity_name: Name of the entity, use same language as input text. If English, capitalized the name. IMPORTANT: Remove any trailing numbers from entity names (e.g., "安全帽11" should be extracted as "安全帽", "helmet5" should be extracted as "helmet").
 - entity_type: One of the following types: [{entity_types}]
 - entity_description: Comprehensive description of the entity's attributes and activities
 Format each entity as ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>)
+
+### Patent Continuation Guidelines
+When continuing patent document processing:
+1. **Cross-Reference Consistency**: Ensure new entities maintain consistent naming with previously extracted patent elements.
+2. **Embodiment Variations**: Look for additional embodiments or implementation details not covered in previous chunks.
+3. **Technical Detail Expansion**: Extract more specific technical parameters, measurements, or component specifications.
+4. **Claim Dependencies**: Identify dependent claims and their relationships to independent claims from previous chunks.
+5. **Implementation Examples**: Focus on concrete examples, use cases, or application scenarios.
+6. **Comparative Analysis**: Extract comparisons with prior art or alternative approaches mentioned in this chunk.
 
 2. From the entities identified in step 1, identify all pairs of (source_entity, target_entity) that are *clearly related* to each other.
 For each pair of related entities, extract the following information:
@@ -161,6 +250,13 @@ For each pair of related entities, extract the following information:
 - relationship_strength: a numeric score indicating strength of the relationship between the source entity and target entity
 - relationship_keywords: one or more high-level key words that summarize the overarching nature of the relationship, focusing on concepts or themes rather than specific details
 Format each relationship as ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_strength>)
+
+### Patent Relationship Guidelines
+For patent documents, focus on:
+- **Technical relationships**: "implements", "improves", "comprises", "solves"
+- **Legal relationships**: "invented by", "applied by", "claims"
+- **Structural relationships**: "part of", "connected to", "includes"
+- **Functional relationships**: "enables", "prevents", "enhances"
 
 3. Identify high-level key words that summarize the main concepts, themes, or topics of the entire text. These should capture the overarching ideas present in the document.
 Format the content-level key words as ("content_keywords"{tuple_delimiter}<high_level_keywords>)
@@ -203,6 +299,16 @@ When handling relationships with timestamps:
 3. Don't automatically prefer the most recently created relationships - use judgment based on the context
 4. For time-specific queries, prioritize temporal information in the content before considering creation timestamps
 
+---Patent-Specific Guidelines---
+
+When dealing with patent-related queries, follow these additional guidelines:
+1. **Technical Structure**: Organize patent information following standard patent structure: Technical Field → Background Art → Technical Solution → Embodiments → Beneficial Effects
+2. **Entity Relationships**: Clearly distinguish between different patent entities (inventors, applicants, claims, embodiments, etc.) and their relationships
+3. **Technical Analysis**: For technical queries, focus on the technical solution, implementation details, and advantages over prior art
+4. **Legal Aspects**: When discussing patent ownership, clearly identify applicants, inventors, and filing information
+5. **Innovation Highlights**: Emphasize the novel aspects and beneficial effects that distinguish the invention from existing technology
+6. **Cross-Patent Analysis**: When multiple patents are involved, compare and contrast their technical approaches and scope
+
 ---Conversation History---
 {history}
 
@@ -215,6 +321,7 @@ When handling relationships with timestamps:
 - Use markdown formatting with appropriate section headings
 - Please respond in the same language as the user's question.
 - Ensure the response maintains continuity with the conversation history.
+- For patent-related responses, use structured headings like "技术领域", "技术方案", "有益效果" for Chinese or "Technical Field", "Technical Solution", "Beneficial Effects" for English
 - List up to 5 most important reference sources at the end under "References" section. Clearly indicating whether each source is from Knowledge Graph (KG) or Document Chunks (DC), and include the file path if available, in the following format: [KG/DC] file_path
 - If you don't know the answer, just say so.
 - Do not make anything up. Do not include information not provided by the Knowledge Base.
@@ -237,6 +344,17 @@ Given the query and conversation history, list both high-level and low-level key
 - The JSON should have two keys:
   - "high_level_keywords" for overarching concepts or themes
   - "low_level_keywords" for specific entities or details
+
+## Patent-Specific Keyword Extraction Guidelines
+When processing patent documents, prioritize:
+1. **Technical Terms**: Core technical concepts, methods, and technologies
+2. **Component Names**: Specific parts, devices, systems, and apparatus
+3. **Process Steps**: Key procedural elements and operational phases
+4. **Problem-Solution Pairs**: Issues addressed and solutions provided
+5. **Functional Keywords**: Actions, operations, and capabilities
+6. **Material/Substance Names**: Specific materials, chemicals, or compositions used
+7. **Measurement/Parameter Terms**: Quantitative aspects and specifications
+8. **Industry/Domain Terms**: Field-specific terminology and classifications
 
 ######################
 ---Examples---
@@ -285,6 +403,26 @@ Output:
 {
   "high_level_keywords": ["Education", "Poverty reduction", "Socioeconomic development"],
   "low_level_keywords": ["School access", "Literacy rates", "Job training", "Income inequality"]
+}
+#############################""",
+    """Example 4:
+
+Query: "智能路面检测装置的技术方案和有益效果是什么？"
+################
+Output:
+{
+  "high_level_keywords": ["专利技术", "道路养护", "智能检测", "技术创新"],
+  "low_level_keywords": ["激光扫描", "图像识别", "检测精度", "人工成本", "安全保障"]
+}
+#############################""",
+    """Example 5:
+
+Query: "What are the key technical features of the road maintenance patent?"
+################
+Output:
+{
+  "high_level_keywords": ["Patent technology", "Road maintenance", "Technical innovation", "Invention disclosure"],
+  "low_level_keywords": ["Technical field", "Background art", "Embodiment", "Claims", "Beneficial effects"]
 }
 #############################""",
 ]

@@ -187,7 +187,20 @@
       "unknown": "未知",
       "object": "物品",
       "group": "群组",
-      "technology": "技术"
+      "technology": "技术",
+      "invention": "发明",
+      "technical_solution": "技术方案",
+      "embodiment": "实施例",
+      "material": "材料",
+      "road_section": "路段",
+      "beneficial_effect": "有益效果",
+      "background_art": "背景技术",
+      "maintenance_activity": "维护活动",
+      "technical_field": "技术领域",
+      "claim": "权利要求",
+      "patent": "专利",
+      "pavement_condition": "路面状况",
+      "prior_art": "现有技术"
     },
     "sideBar": {
       "settings": {

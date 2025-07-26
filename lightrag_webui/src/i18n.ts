@@ -13,12 +13,12 @@ const getStoredLanguage = () => {
     const settingsString = localStorage.getItem('settings-storage')
     if (settingsString) {
       const settings = JSON.parse(settingsString)
-      return settings.state?.language || 'en'
+      return settings.state?.language || 'zh'
     }
   } catch (e) {
     console.error('Failed to get stored language:', e)
   }
-  return 'en'
+  return 'zh'
 }
 
 i18n
@@ -32,7 +32,7 @@ i18n
       zh_TW: { translation: zh_TW }
     },
     lng: getStoredLanguage(), // Use stored language settings
-    fallbackLng: 'en',
+    fallbackLng: 'zh',
     interpolation: {
       escapeValue: false
     },

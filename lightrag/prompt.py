@@ -24,7 +24,7 @@ Use {language} as output language.
 - entity_description: Comprehensive description of the entity's attributes and activities
 Format each entity as ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>)
 
-    ### Patent-Specific Entity Extraction Guidelines
+### Patent-Specific Entity Extraction Guidelines
 When processing patent documents, pay special attention to:
 1. **Patent Structure Elements**: Identify and extract patent-specific sections like technical field, background art, technical solution, embodiments, and beneficial effects as separate entities.
 2. **Invention Hierarchy**: Distinguish between the main invention and specific embodiments or implementations.
@@ -123,24 +123,6 @@ Output:
 ("content_keywords"<|>"高速公路养护, 车辙, 铣刨重铺, SBS改性沥青, 施工设备")<|COMPLETE|>
 #############################""",
     """Example 3:
-
-Entity_types: [road_section, maintenance_activity, pavement_condition, material]
-Text:
-```
-为预防冬季桥梁结冰，养护团队在S20外环高速的跨海大桥上预撒了融雪剂。本次作业主要针对桥面及匝道，使用了环保型氯化钙融雪剂。
-```
-
-Output:
-("entity"<|>"S20外环高速跨海大桥"<|>"road_section"<|>"S20外环高速上的一座重要桥梁结构。")##
-("entity"<|>"桥面结冰"<|>"pavement_condition"<|>"冬季桥梁可能出现的潜在病害或危险状况。")##
-("entity"<|>"预撒融雪剂"<|>"maintenance_activity"<|>"为预防道路结冰而采取的预防性养护措施。")##
-("entity"<|>"环保型氯化钙融雪剂"<|>"material"<|>"用于本次预防性养护作业的材料。")##
-("relationship"<|>"预撒融雪剂"<|>"S20外环高速跨海大桥"<|>"在跨海大桥上实施了预撒融雪剂作业。"<|>"作业地点, 预防性养护"<|>"10")##
-("relationship"<|>"预撒融雪剂"<|>"桥面结冰"<|>"预撒融雪剂的目的是为了防止桥面结冰。"<|>"预防, 病害"<|>"9")##
-("relationship"<|>"环保型氯化钙融雪剂"<|>"预撒融雪剂"<|>"该材料被用于预撒融雪剂作业。"<|>"材料使用"<|>"8")##
-("content_keywords"<|>"桥梁养护, 预防性养护, 融雪剂, 冬季安全")<|COMPLETE|>
-#############################""",
-    """Example 4:
 
 Entity_types: [patent, invention, claim, technical_field, background_art, embodiment, inventor, applicant, organization, technical_solution, beneficial_effect]
 Text:

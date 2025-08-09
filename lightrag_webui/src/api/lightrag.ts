@@ -496,10 +496,14 @@ export const insertTexts = async (texts: string[]): Promise<DocActionResponse> =
 
 export const uploadDocument = async (
   file: File,
-  onUploadProgress?: (percentCompleted: number) => void
+  onUploadProgress?: (percentCompleted: number) => void,
+  useRAGAnything?: boolean
 ): Promise<DocActionResponse> => {
   const formData = new FormData()
   formData.append('file', file)
+  if (useRAGAnything !== undefined) {
+    formData.append('use_raganything', useRAGAnything.toString())
+  }
 
   const response = await axiosInstance.post('/documents/upload', formData, {
     headers: {

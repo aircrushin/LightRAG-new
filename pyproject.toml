@@ -67,6 +67,7 @@ dependencies = [
     "pydantic",
     "python-dotenv",
     "pyuca",
+    "raganything>=1.2.6",
     "setuptools",
     "tenacity",
     "tiktoken",

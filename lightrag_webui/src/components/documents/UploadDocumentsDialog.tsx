@@ -10,6 +10,7 @@ import {
   DialogTrigger
 } from '@/components/ui/Dialog'
 import FileUploader from '@/components/ui/FileUploader'
+import Checkbox from '@/components/ui/Checkbox'
 import { toast } from 'sonner'
 import { errorMessage } from '@/lib/utils'
 import { uploadDocument } from '@/api/lightrag'
@@ -27,6 +28,7 @@ export default function UploadDocumentsDialog({ onDocumentsUploaded }: UploadDoc
   const [isUploading, setIsUploading] = useState(false)
   const [progresses, setProgresses] = useState<Record<string, number>>({})
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({})
+  const [useRAGAnything, setUseRAGAnything] = useState(true)
 
   const handleRejectedFiles = useCallback(
     (rejectedFiles: FileRejection[]) => {
@@ -101,7 +103,7 @@ export default function UploadDocumentsDialog({ onDocumentsUploaded }: UploadDoc
                 ...pre,
                 [file.name]: percentCompleted
               }))
-            })
+            }, useRAGAnything)
 
             if (result.status === 'duplicated') {
               uploadErrors[file.name] = t('documentPanel.uploadDocuments.fileUploader.duplicateFile')
@@ -204,16 +206,34 @@ export default function UploadDocumentsDialog({ onDocumentsUploaded }: UploadDoc
             {t('documentPanel.uploadDocuments.description')}
           </DialogDescription>
         </DialogHeader>
-        <FileUploader
-          maxFileCount={Infinity}
-          maxSize={200 * 1024 * 1024}
-          description={t('documentPanel.uploadDocuments.fileTypes')}
-          onUpload={handleDocumentsUpload}
-          onReject={handleRejectedFiles}
-          progresses={progresses}
-          fileErrors={fileErrors}
-          disabled={isUploading}
-        />
+        
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="use-raganything"
+              checked={useRAGAnything}
+              onCheckedChange={setUseRAGAnything}
+              disabled={isUploading}
+            />
+            <label
+              htmlFor="use-raganything"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              {t('documentPanel.uploadDocuments.useRAGAnything', 'Use RAGAnything for multimodal processing (PDF, DOCX, images, etc.)')}
+            </label>
+          </div>
+          
+          <FileUploader
+            maxFileCount={Infinity}
+            maxSize={200 * 1024 * 1024}
+            description={t('documentPanel.uploadDocuments.fileTypes')}
+            onUpload={handleDocumentsUpload}
+            onReject={handleRejectedFiles}
+            progresses={progresses}
+            fileErrors={fileErrors}
+            disabled={isUploading}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   )

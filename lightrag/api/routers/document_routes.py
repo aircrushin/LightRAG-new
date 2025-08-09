@@ -17,6 +17,7 @@ from fastapi import (
     BackgroundTasks,
     Depends,
     File,
+    Form,
     HTTPException,
     UploadFile,
 )
@@ -549,7 +550,34 @@ class DocumentManager:
         return any(filename.lower().endswith(ext) for ext in self.supported_extensions)
 
 
-async def pipeline_enqueue_file(rag: LightRAG, file_path: Path) -> bool:
+def is_multimodal_file(file_path: Path) -> bool:
+    """Check if a file is a multimodal file that should be processed by RAGAnything
+    
+    Args:
+        file_path: Path to the file
+        
+    Returns:
+        bool: True if the file is multimodal and should be processed by RAGAnything
+    """
+    multimodal_extensions = {
+        # Document formats
+        ".pdf", ".docx", ".pptx", ".xlsx", ".doc", ".ppt", ".xls",
+        # Image formats
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".svg",
+        # Other formats that benefit from multimodal processing
+        ".epub", ".odt", ".odp", ".ods"
+    }
+    
+    ext = file_path.suffix.lower()
+    return ext in multimodal_extensions
+
+
+async def pipeline_enqueue_file(
+    rag: LightRAG, 
+    file_path: Path, 
+    raganything_obj: Optional[Any] = None,
+    ra_output_dir: Optional[str] = None
+) -> bool:
     """Add a file to the queue for processing
 
     Args:
@@ -562,7 +590,90 @@ async def pipeline_enqueue_file(rag: LightRAG, file_path: Path) -> bool:
     try:
         content = ""
         ext = file_path.suffix.lower()
-
+        
+        # Log file processing start
+        logger.info(f"📄 Processing file: {file_path.name} (extension: {ext})")
+        
+        # Check if this is a multimodal file and RAGAnything is available
+        is_multimodal = is_multimodal_file(file_path)
+        raganything_available = raganything_obj is not None
+        
+        logger.info(f"🔍 File analysis: multimodal={is_multimodal}, RAGAnything_available={raganything_available}")
+        
+        if raganything_available and is_multimodal:
+            try:
+                logger.info(f"🚀 Starting RAGAnything processing for {file_path.name}")
+                logger.info(f"📂 Output directory: {ra_output_dir or str(file_path.parent / 'raganything_output')}")
+                
+                # Create output directory if provided
+                output_dir = ra_output_dir or str(file_path.parent / "raganything_output")
+                
+                # Process document with RAGAnything
+                logger.info(f"📋 Calling RAGAnything.process_document_complete with parse_method='auto'")
+                result = await raganything_obj.process_document_complete(
+                    file_path=str(file_path),
+                    output_dir=output_dir,
+                    parse_method="auto"
+                )
+                logger.info(f"✅ RAGAnything processing completed for {file_path.name}")
+                
+                # Extract content from RAGAnything result
+                logger.info(f"📊 Extracting content from RAGAnything result...")
+                if hasattr(result, 'content') and result.content:
+                    content = result.content
+                    logger.info(f"📝 Extracted content from result.content ({len(content)} chars)")
+                elif hasattr(result, 'markdown') and result.markdown:
+                    content = result.markdown
+                    logger.info(f"📝 Extracted content from result.markdown ({len(content)} chars)")
+                elif hasattr(result, 'text') and result.text:
+                    content = result.text
+                    logger.info(f"📝 Extracted content from result.text ({len(content)} chars)")
+                else:
+                    # Try to read the output files if result doesn't have direct content
+                    logger.info(f"📁 No direct content in result, checking output directory: {output_dir}")
+                    from pathlib import Path as PathlibPath
+                    output_path = PathlibPath(output_dir)
+                    
+                    # Look for markdown or text files in output directory
+                    markdown_files = list(output_path.glob("*.md"))
+                    text_files = list(output_path.glob("*.txt"))
+                    
+                    logger.info(f"🔍 Found {len(markdown_files)} markdown files and {len(text_files)} text files")
+                    
+                    if markdown_files:
+                        logger.info(f"📖 Reading markdown file: {markdown_files[0].name}")
+                        async with aiofiles.open(markdown_files[0], "r", encoding="utf-8") as f:
+                            content = await f.read()
+                    elif text_files:
+                        logger.info(f"📖 Reading text file: {text_files[0].name}")
+                        async with aiofiles.open(text_files[0], "r", encoding="utf-8") as f:
+                            content = await f.read()
+                
+                if content and content.strip():
+                    logger.info(f"🎉 Successfully processed {file_path.name} with RAGAnything")
+                    logger.info(f"📊 Content stats: {len(content)} characters, {len(content.split())} words, {content.count(chr(10))} lines")
+                    logger.info(f"📋 Content preview: {content[:200]}{'...' if len(content) > 200 else ''}")
+                    
+                    # Enqueue the processed content
+                    logger.info(f"📤 Enqueueing RAGAnything processed content to LightRAG pipeline...")
+                    await rag.apipeline_enqueue_documents(content, file_paths=file_path.name)
+                    logger.info(f"✅ Successfully enqueued RAGAnything processed file: {file_path.name}")
+                    return True
+                else:
+                    logger.warning(f"⚠️ RAGAnything processing resulted in empty content for {file_path.name}, falling back to standard processing")
+                    
+            except Exception as e:
+                logger.warning(f"❌ RAGAnything processing failed for {file_path.name}: {str(e)}")
+                logger.warning(f"🔄 Falling back to standard processing...")
+                logger.warning(traceback.format_exc())
+        else:
+            if not raganything_available:
+                logger.info(f"⚡ Using standard processing (RAGAnything not available)")
+            elif not is_multimodal:
+                logger.info(f"⚡ Using standard processing (not a multimodal file)")
+        
+        # Fall back to standard processing if RAGAnything is not available or failed
+        logger.info(f"🔧 Starting standard file processing for {file_path.name}")
         file = None
         async with aiofiles.open(file_path, "rb") as f:
             file = await f.read()
@@ -727,36 +838,46 @@ async def pipeline_enqueue_file(rag: LightRAG, file_path: Path) -> bool:
             # Check if content contains only whitespace characters
             if not content.strip():
                 logger.warning(
-                    f"File contains only whitespace characters. file_paths={file_path.name}"
+                    f"⚠️ File contains only whitespace characters. file_paths={file_path.name}"
                 )
 
+            logger.info(f"📊 Standard processing stats: {len(content)} characters, {len(content.split())} words")
+            logger.info(f"📤 Enqueueing standard processed content to LightRAG pipeline...")
             await rag.apipeline_enqueue_documents(content, file_paths=file_path.name)
-            logger.info(f"Successfully fetched and enqueued file: {file_path.name}")
+            logger.info(f"✅ Successfully fetched and enqueued file (standard processing): {file_path.name}")
             return True
         else:
-            logger.error(f"No content could be extracted from file: {file_path.name}")
+            logger.error(f"❌ No content could be extracted from file: {file_path.name}")
 
     except Exception as e:
-        logger.error(f"Error processing or enqueueing file {file_path.name}: {str(e)}")
+        logger.error(f"❌ Error processing or enqueueing file {file_path.name}: {str(e)}")
         logger.error(traceback.format_exc())
     finally:
         if file_path.name.startswith(temp_prefix):
             try:
                 file_path.unlink()
+                logger.info(f"🗑️ Deleted temporary file: {file_path.name}")
             except Exception as e:
-                logger.error(f"Error deleting file {file_path}: {str(e)}")
+                logger.error(f"❌ Error deleting file {file_path}: {str(e)}")
     return False
 
 
-async def pipeline_index_file(rag: LightRAG, file_path: Path):
+async def pipeline_index_file(
+    rag: LightRAG, 
+    file_path: Path, 
+    raganything_obj: Optional[Any] = None,
+    ra_output_dir: Optional[str] = None
+):
     """Index a file
 
     Args:
         rag: LightRAG instance
         file_path: Path to the saved file
+        raganything_obj: Optional RAGAnything instance for multimodal processing
+        ra_output_dir: Optional output directory for RAGAnything results
     """
     try:
-        if await pipeline_enqueue_file(rag, file_path):
+        if await pipeline_enqueue_file(rag, file_path, raganything_obj, ra_output_dir):
             await rag.apipeline_process_enqueue_documents()
 
     except Exception as e:
@@ -764,12 +885,19 @@ async def pipeline_index_file(rag: LightRAG, file_path: Path):
         logger.error(traceback.format_exc())
 
 
-async def pipeline_index_files(rag: LightRAG, file_paths: List[Path]):
+async def pipeline_index_files(
+    rag: LightRAG, 
+    file_paths: List[Path], 
+    raganything_obj: Optional[Any] = None,
+    ra_output_dir: Optional[str] = None
+):
     """Index multiple files sequentially to avoid high CPU load
 
     Args:
         rag: LightRAG instance
         file_paths: Paths to the files to index
+        raganything_obj: Optional RAGAnything instance for multimodal processing
+        ra_output_dir: Optional output directory for RAGAnything results
     """
     if not file_paths:
         return
@@ -782,7 +910,7 @@ async def pipeline_index_files(rag: LightRAG, file_paths: List[Path]):
 
         # Process files sequentially
         for file_path in sorted_file_paths:
-            if await pipeline_enqueue_file(rag, file_path):
+            if await pipeline_enqueue_file(rag, file_path, raganything_obj, ra_output_dir):
                 enqueued = True
 
         # Process the queue only if at least one file was successfully enqueued
@@ -839,19 +967,32 @@ async def save_temp_file(input_dir: Path, file: UploadFile = File(...)) -> Path:
     return temp_path
 
 
-async def run_scanning_process(rag: LightRAG, doc_manager: DocumentManager):
+async def run_scanning_process(
+    rag: LightRAG, 
+    doc_manager: DocumentManager, 
+    raganything_obj: Optional[Any] = None,
+    ra_output_dir: Optional[str] = None
+):
     """Background task to scan and index documents"""
     try:
+        logger.info(f"🔍 Starting directory scan with RAGAnything={'enabled' if raganything_obj else 'disabled'}")
         new_files = doc_manager.scan_directory_for_new_files()
         total_files = len(new_files)
-        logger.info(f"Found {total_files} files to index.")
+        logger.info(f"📊 Found {total_files} new files to index")
 
         if not new_files:
+            logger.info("✅ No new files found during scanning")
             return
 
+        # Log file types
+        multimodal_count = sum(1 for f in new_files if is_multimodal_file(f))
+        standard_count = total_files - multimodal_count
+        logger.info(f"📋 File breakdown: {multimodal_count} multimodal files, {standard_count} standard files")
+
         # Process all files at once
-        await pipeline_index_files(rag, new_files)
-        logger.info(f"Scanning process completed: {total_files} files Processed.")
+        logger.info(f"🚀 Processing {total_files} files...")
+        await pipeline_index_files(rag, new_files, raganything_obj, ra_output_dir)
+        logger.info(f"✅ Scanning process completed: {total_files} files processed")
 
     except Exception as e:
         logger.error(f"Error during scanning process: {str(e)}")
@@ -1014,7 +1155,11 @@ async def background_delete_documents(
 
 
 def create_document_routes(
-    rag: LightRAG, doc_manager: DocumentManager, api_key: Optional[str] = None
+    rag: LightRAG, 
+    doc_manager: DocumentManager, 
+    api_key: Optional[str] = None,
+    raganything_obj: Optional[Any] = None,
+    ra_output_dir: Optional[str] = None
 ):
     # Create combined auth dependency for document routes
     combined_auth = get_combined_auth_dependency(api_key)
@@ -1034,7 +1179,8 @@ def create_document_routes(
             ScanResponse: A response object containing the scanning status
         """
         # Start the scanning process in the background
-        background_tasks.add_task(run_scanning_process, rag, doc_manager)
+        logger.info(f"🔍 Starting document scanning process with RAGAnything={'enabled' if raganything_obj else 'disabled'}")
+        background_tasks.add_task(run_scanning_process, rag, doc_manager, raganything_obj, ra_output_dir)
         return ScanResponse(
             status="scanning_started",
             message="Scanning process has been initiated in the background",
@@ -1044,7 +1190,9 @@ def create_document_routes(
         "/upload", response_model=InsertResponse, dependencies=[Depends(combined_auth)]
     )
     async def upload_to_input_dir(
-        background_tasks: BackgroundTasks, file: UploadFile = File(...)
+        background_tasks: BackgroundTasks, 
+        file: UploadFile = File(...),
+        use_raganything: bool = Form(True)
     ):
         """
         Upload a file to the input directory and index it.
@@ -1067,6 +1215,13 @@ def create_document_routes(
         try:
             # Sanitize filename to prevent Path Traversal attacks
             safe_filename = sanitize_filename(file.filename, doc_manager.input_dir)
+            
+            # Determine if RAGAnything should be used
+            use_raganything_final = use_raganything and raganything_obj is not None
+            logger.info(f"📁 File upload started: {safe_filename}")
+            logger.info(f"🎛️ User choice: use_raganything={use_raganything}")
+            logger.info(f"🔧 RAGAnything available: {raganything_obj is not None}")
+            logger.info(f"✅ Final decision: will_use_raganything={use_raganything_final}")
 
             if not doc_manager.is_supported_file(safe_filename):
                 raise HTTPException(
@@ -1086,7 +1241,11 @@ def create_document_routes(
                 shutil.copyfileobj(file.file, buffer)
 
             # Add to background tasks
-            background_tasks.add_task(pipeline_index_file, rag, file_path)
+            logger.info(f"📤 File saved, starting background processing: {safe_filename}")
+            
+            # Pass RAGAnything object only if user enabled it
+            final_raganything_obj = raganything_obj if use_raganything_final else None
+            background_tasks.add_task(pipeline_index_file, rag, file_path, final_raganything_obj, ra_output_dir)
 
             return InsertResponse(
                 status="success",

@@ -28,7 +28,7 @@ export default function UploadDocumentsDialog({ onDocumentsUploaded }: UploadDoc
   const [isUploading, setIsUploading] = useState(false)
   const [progresses, setProgresses] = useState<Record<string, number>>({})
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({})
-  const [useRAGAnything, setUseRAGAnything] = useState(true)
+  const [useRAGAnything, setUseRAGAnything] = useState(false)
 
   const handleRejectedFiles = useCallback(
     (rejectedFiles: FileRejection[]) => {
@@ -177,7 +177,7 @@ export default function UploadDocumentsDialog({ onDocumentsUploaded }: UploadDoc
         setIsUploading(false)
       }
     },
-    [setIsUploading, setProgresses, setFileErrors, t, onDocumentsUploaded]
+    [setIsUploading, setProgresses, setFileErrors, t, onDocumentsUploaded, useRAGAnything]
   )
 
   return (
@@ -212,14 +212,14 @@ export default function UploadDocumentsDialog({ onDocumentsUploaded }: UploadDoc
             <Checkbox
               id="use-raganything"
               checked={useRAGAnything}
-              onCheckedChange={setUseRAGAnything}
+              onCheckedChange={(checked) => setUseRAGAnything(checked === true)}
               disabled={isUploading}
             />
             <label
               htmlFor="use-raganything"
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
-              {t('documentPanel.uploadDocuments.useRAGAnything', 'Use RAGAnything for multimodal processing (PDF, DOCX, images, etc.)')}
+              {t('documentPanel.uploadDocuments.useRAGAnything', 'Use RAGAnything for enhanced multimodal processing (PDF, DOCX, images, etc.)')}
             </label>
           </div>
           

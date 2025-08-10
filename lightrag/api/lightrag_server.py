@@ -122,28 +122,6 @@ def create_app(args):
     # Initialize document manager with workspace support for data isolation
     doc_manager = DocumentManager(args.input_dir, workspace=args.workspace)
 
-    # Initialize RAGAnything if available
-    raganything_obj = None
-    ra_output_dir = None
-    try:
-        # Try to initialize RAGAnything if package is available
-        # This is optional and will gracefully fail if RAGAnything is not installed
-        from raganything import RAGAnything  # type: ignore
-        
-        # Set output directory
-        ra_output_dir = os.path.join(args.working_dir, "raganything_output")
-        
-        # Initialize RAGAnything with default configuration
-        raganything_obj = RAGAnything()
-        logger.info("✅ RAGAnything initialized successfully for multimodal document processing")
-        logger.info(f"📂 RAGAnything output dir: {ra_output_dir}")
-        logger.info(f"🔧 RAGAnything features: multimodal document parsing, image processing, table extraction")
-        
-    except ImportError:
-        logger.info("❌ RAGAnything not available - multimodal processing disabled (install with: pip install raganything)")
-    except Exception as e:
-        logger.warning(f"❌ Failed to initialize RAGAnything: {e} - multimodal processing disabled")
-
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         """Lifespan context manager for startup and shutdown events"""
@@ -167,8 +145,8 @@ def create_app(args):
 
             # Only run auto scan when no other process started it first
             if should_start_autoscan:
-                # Create background task
-                task = asyncio.create_task(run_scanning_process(rag, doc_manager, raganything_obj, ra_output_dir))
+                # Create background task (RAGAnything will be initialized later)
+                task = asyncio.create_task(run_scanning_process(rag, doc_manager, None, None))
                 app.state.background_tasks.add(task)
                 task.add_done_callback(app.state.background_tasks.discard)
                 logger.info(f"Process {os.getpid()} auto scan task started at startup.")
@@ -425,6 +403,26 @@ def create_app(args):
             max_graph_nodes=args.max_graph_nodes,
             addon_params={"language": args.summary_language},
         )
+
+    # Initialize RAGAnything if available (after LightRAG is created)
+    raganything_obj = None
+    ra_output_dir = None
+    try:
+        # Try to initialize RAGAnything if package is available
+        # This is optional and will gracefully fail if RAGAnything is not installed
+        from raganything import RAGAnything  # type: ignore
+        
+        # Set output directory
+        ra_output_dir = os.path.join(args.working_dir, "raganything_output")
+        
+        # Initialize RAGAnything with the existing LightRAG instance
+        raganything_obj = RAGAnything(lightrag=rag)
+        logger.info("✅ RAGAnything initialized successfully for multimodal document processing")
+        
+    except ImportError:
+        logger.info("❌ RAGAnything not available - multimodal processing disabled (install with: pip install raganything)")
+    except Exception as e:
+        logger.warning(f"❌ Failed to initialize RAGAnything: {e} - multimodal processing disabled")
 
     # Add routes
     app.include_router(

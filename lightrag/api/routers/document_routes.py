@@ -613,7 +613,9 @@ async def pipeline_enqueue_file(
                 result = await raganything_obj.process_document_complete(
                     file_path=str(file_path),
                     output_dir=output_dir,
-                    parse_method="auto"
+                    parse_method="txt",
+                    device="mps",
+                    lang="ch"
                 )
                 logger.info(f"✅ RAGAnything processing completed for {file_path.name}")
                 
@@ -668,12 +670,12 @@ async def pipeline_enqueue_file(
                 logger.warning(traceback.format_exc())
         else:
             if not raganything_available:
-                logger.info(f"⚡ Using standard processing (RAGAnything not available)")
+                logger.info(f"⚡ Using standard LightRAG processing (RAGAnything not enabled by user)")
             elif not is_multimodal:
-                logger.info(f"⚡ Using standard processing (not a multimodal file)")
+                logger.info(f"⚡ Using standard LightRAG processing (not a multimodal file)")
         
         # Fall back to standard processing if RAGAnything is not available or failed
-        logger.info(f"🔧 Starting standard file processing for {file_path.name}")
+        logger.info(f"🔧 Starting standard LightRAG processing for {file_path.name}")
         file = None
         async with aiofiles.open(file_path, "rb") as f:
             file = await f.read()
@@ -975,7 +977,7 @@ async def run_scanning_process(
 ):
     """Background task to scan and index documents"""
     try:
-        logger.info(f"🔍 Starting directory scan with RAGAnything={'enabled' if raganything_obj else 'disabled'}")
+        logger.info(f"🔍 Starting directory scan using standard LightRAG processing")
         new_files = doc_manager.scan_directory_for_new_files()
         total_files = len(new_files)
         logger.info(f"📊 Found {total_files} new files to index")
@@ -984,15 +986,10 @@ async def run_scanning_process(
             logger.info("✅ No new files found during scanning")
             return
 
-        # Log file types
-        multimodal_count = sum(1 for f in new_files if is_multimodal_file(f))
-        standard_count = total_files - multimodal_count
-        logger.info(f"📋 File breakdown: {multimodal_count} multimodal files, {standard_count} standard files")
-
-        # Process all files at once
-        logger.info(f"🚀 Processing {total_files} files...")
-        await pipeline_index_files(rag, new_files, raganything_obj, ra_output_dir)
-        logger.info(f"✅ Scanning process completed: {total_files} files processed")
+        # Process all files at once using standard processing (no RAGAnything in auto-scan)
+        logger.info(f"🚀 Processing {total_files} files with standard LightRAG...")
+        await pipeline_index_files(rag, new_files, None, None)
+        logger.info(f"✅ Scanning process completed: {total_files} files processed with standard LightRAG")
 
     except Exception as e:
         logger.error(f"Error during scanning process: {str(e)}")
@@ -1178,9 +1175,9 @@ def create_document_routes(
         Returns:
             ScanResponse: A response object containing the scanning status
         """
-        # Start the scanning process in the background
-        logger.info(f"🔍 Starting document scanning process with RAGAnything={'enabled' if raganything_obj else 'disabled'}")
-        background_tasks.add_task(run_scanning_process, rag, doc_manager, raganything_obj, ra_output_dir)
+        # Start the scanning process in the background (always use standard processing for scanning)
+        logger.info(f"🔍 Starting document scanning process using standard LightRAG processing")
+        background_tasks.add_task(run_scanning_process, rag, doc_manager, None, None)
         return ScanResponse(
             status="scanning_started",
             message="Scanning process has been initiated in the background",
@@ -1192,7 +1189,7 @@ def create_document_routes(
     async def upload_to_input_dir(
         background_tasks: BackgroundTasks, 
         file: UploadFile = File(...),
-        use_raganything: bool = Form(True)
+        use_raganything: bool = Form(False)
     ):
         """
         Upload a file to the input directory and index it.
@@ -1219,9 +1216,12 @@ def create_document_routes(
             # Determine if RAGAnything should be used
             use_raganything_final = use_raganything and raganything_obj is not None
             logger.info(f"📁 File upload started: {safe_filename}")
-            logger.info(f"🎛️ User choice: use_raganything={use_raganything}")
+            logger.info(f"🎛️ User selected RAGAnything: {use_raganything}")
             logger.info(f"🔧 RAGAnything available: {raganything_obj is not None}")
-            logger.info(f"✅ Final decision: will_use_raganything={use_raganything_final}")
+            logger.info(f"✅ Will use RAGAnything: {use_raganything_final}")
+            
+            if use_raganything and raganything_obj is None:
+                logger.warning(f"⚠️ User requested RAGAnything but it's not available - using standard processing")
 
             if not doc_manager.is_supported_file(safe_filename):
                 raise HTTPException(

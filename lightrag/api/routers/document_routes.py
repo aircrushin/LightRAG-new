@@ -565,7 +565,7 @@ def is_multimodal_file(file_path: Path) -> bool:
         # Image formats
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".svg",
         # Other formats that benefit from multimodal processing
-        ".epub", ".odt", ".odp", ".ods"
+        ".epub", ".odt", ".odp", ".ods", ".md"
     }
     
     ext = file_path.suffix.lower()
@@ -602,25 +602,74 @@ async def pipeline_enqueue_file(
         
         if raganything_available and is_multimodal:
             try:
+                # Update pipeline status for RAGAnything processing
+                from lightrag.kg.shared_storage import get_namespace_data, get_pipeline_status_lock
+                pipeline_status = await get_namespace_data("pipeline_status")
+                pipeline_status_lock = get_pipeline_status_lock()
+                
+                async with pipeline_status_lock:
+                    pipeline_status.update({
+                        "busy": True,
+                        "job_name": f"RAGAnything Processing: {file_path.name}",
+                        "job_start": datetime.now().isoformat(),
+                        "docs": 1,
+                        "batchs": 4,  # 4 stages: init, parse, extract, finalize
+                        "cur_batch": 0,
+                        "latest_message": f"Initializing RAGAnything processing for {file_path.name}",
+                    })
+                    if "history_messages" in pipeline_status:
+                        pipeline_status["history_messages"].append(f"🚀 Starting RAGAnything processing for {file_path.name}")
+                
                 logger.info(f"🚀 Starting RAGAnything processing for {file_path.name}")
                 logger.info(f"📂 Output directory: {ra_output_dir or str(file_path.parent / 'raganything_output')}")
                 
                 # Create output directory if provided
                 output_dir = ra_output_dir or str(file_path.parent / "raganything_output")
                 
-                # Process document with RAGAnything
-                logger.info(f"📋 Calling RAGAnything.process_document_complete with parse_method='auto'")
+                # Stage 1: Initialization
+                async with pipeline_status_lock:
+                    pipeline_status.update({
+                        "cur_batch": 1,
+                        "latest_message": f"Stage 1/4: Initializing document analysis for {file_path.name}",
+                    })
+                    if "history_messages" in pipeline_status:
+                        pipeline_status["history_messages"].append(f"📋 Stage 1/4: Document analysis initialization")
+                
+                logger.info(f"📋 Stage 1/4: Calling RAGAnything.process_document_complete with parse_method='auto'")
+                
+                # Stage 2: Document parsing (mineru phase)
+                async with pipeline_status_lock:
+                    pipeline_status.update({
+                        "cur_batch": 2,
+                        "latest_message": f"Stage 2/4: Document parsing in progress (mineru processing) - {file_path.name}",
+                    })
+                    if "history_messages" in pipeline_status:
+                        pipeline_status["history_messages"].append(f"⚙️ Stage 2/4: Running mineru parser (this may take a while...)")
+                
+                logger.info(f"⚙️ Stage 2/4: Starting mineru parsing - this may take several minutes...")
+                
+                # The actual RAGAnything call
                 result = await raganything_obj.process_document_complete(
                     file_path=str(file_path),
                     output_dir=output_dir,
-                    parse_method="txt",
-                    device="mps",
+                    parse_method="auto",
+                    # device="mps",
                     lang="ch"
                 )
+                
+                # Stage 3: Content extraction
+                async with pipeline_status_lock:
+                    pipeline_status.update({
+                        "cur_batch": 3,
+                        "latest_message": f"Stage 3/4: Extracting and processing content from {file_path.name}",
+                    })
+                    if "history_messages" in pipeline_status:
+                        pipeline_status["history_messages"].append(f"📊 Stage 3/4: Content extraction from RAGAnything result")
+                
                 logger.info(f"✅ RAGAnything processing completed for {file_path.name}")
                 
                 # Extract content from RAGAnything result
-                logger.info(f"📊 Extracting content from RAGAnything result...")
+                logger.info(f"📊 Stage 3/4: Extracting content from RAGAnything result...")
                 if hasattr(result, 'content') and result.content:
                     content = result.content
                     logger.info(f"📝 Extracted content from result.content ({len(content)} chars)")
@@ -651,6 +700,15 @@ async def pipeline_enqueue_file(
                         async with aiofiles.open(text_files[0], "r", encoding="utf-8") as f:
                             content = await f.read()
                 
+                # Stage 4: Finalization
+                async with pipeline_status_lock:
+                    pipeline_status.update({
+                        "cur_batch": 4,
+                        "latest_message": f"Stage 4/4: Finalizing and enqueueing content for {file_path.name}",
+                    })
+                    if "history_messages" in pipeline_status:
+                        pipeline_status["history_messages"].append(f"✅ Stage 4/4: Finalizing RAGAnything processing")
+                
                 if content and content.strip():
                     logger.info(f"🎉 Successfully processed {file_path.name} with RAGAnything")
                     logger.info(f"📊 Content stats: {len(content)} characters, {len(content.split())} words, {content.count(chr(10))} lines")
@@ -660,14 +718,45 @@ async def pipeline_enqueue_file(
                     logger.info(f"📤 Enqueueing RAGAnything processed content to LightRAG pipeline...")
                     await rag.apipeline_enqueue_documents(content, file_paths=file_path.name)
                     logger.info(f"✅ Successfully enqueued RAGAnything processed file: {file_path.name}")
+                    
+                    # Mark processing as complete
+                    async with pipeline_status_lock:
+                        pipeline_status.update({
+                            "busy": False,
+                            "latest_message": f"✅ RAGAnything processing completed successfully for {file_path.name}",
+                        })
+                        if "history_messages" in pipeline_status:
+                            pipeline_status["history_messages"].append(f"🎉 RAGAnything processing completed: {file_path.name}")
+                    
                     return True
                 else:
                     logger.warning(f"⚠️ RAGAnything processing resulted in empty content for {file_path.name}, falling back to standard processing")
+                    
+                    # Mark as falling back to standard processing
+                    async with pipeline_status_lock:
+                        pipeline_status.update({
+                            "latest_message": f"⚠️ RAGAnything failed, falling back to standard processing for {file_path.name}",
+                        })
+                        if "history_messages" in pipeline_status:
+                            pipeline_status["history_messages"].append(f"⚠️ Falling back to standard processing: {file_path.name}")
                     
             except Exception as e:
                 logger.warning(f"❌ RAGAnything processing failed for {file_path.name}: {str(e)}")
                 logger.warning(f"🔄 Falling back to standard processing...")
                 logger.warning(traceback.format_exc())
+                
+                # Reset pipeline status on error
+                try:
+                    async with pipeline_status_lock:
+                        pipeline_status.update({
+                            "busy": False,
+                            "latest_message": f"❌ RAGAnything processing failed for {file_path.name}, falling back to standard processing",
+                        })
+                        if "history_messages" in pipeline_status:
+                            pipeline_status["history_messages"].append(f"❌ RAGAnything error: {str(e)[:100]}...")
+                            pipeline_status["history_messages"].append(f"🔄 Falling back to standard processing for {file_path.name}")
+                except Exception as status_error:
+                    logger.error(f"Failed to update pipeline status on RAGAnything error: {status_error}")
         else:
             if not raganything_available:
                 logger.info(f"⚡ Using standard LightRAG processing (RAGAnything not enabled by user)")

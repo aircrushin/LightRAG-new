@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/state'
 import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 import { navigationService } from '@/services/navigation'
-import { ZapIcon, GithubIcon, LogOutIcon } from 'lucide-react'
+import { ZapIcon, LogOutIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip'
 
 interface NavigationTabProps {
@@ -46,9 +46,9 @@ function TabsNavigation() {
         <NavigationTab value="retrieval" currentTab={currentTab}>
           {t('header.retrieval')}
         </NavigationTab>
-        <NavigationTab value="api" currentTab={currentTab}>
+        {/* <NavigationTab value="api" currentTab={currentTab}>
           {t('header.api')}
-        </NavigationTab>
+        </NavigationTab> */}
       </TabsList>
     </div>
   )
@@ -96,11 +96,11 @@ export default function SiteHeader() {
 
       <div className="flex h-10 flex-1 items-center justify-center">
         <TabsNavigation />
-        {isGuestMode && (
+        {/* {isGuestMode && (
           <div className="ml-2 self-center px-2 py-1 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 rounded-md">
             {t('login.guestMode', 'Guest Mode')}
           </div>
-        )}
+        )} */}
       </div>
 
       <nav className="w-[200px] flex items-center justify-end">
@@ -110,11 +110,7 @@ export default function SiteHeader() {
               v{versionDisplay}
             </span>
           )}
-          <Button variant="ghost" size="icon" side="bottom" tooltip={t('header.projectRepository')}>
-            <a href={SiteInfo.github} target="_blank" rel="noopener noreferrer">
-              <GithubIcon className="size-4" aria-hidden="true" />
-            </a>
-          </Button>
+
           <AppSettings />
           {!isGuestMode && (
             <Button

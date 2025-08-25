@@ -6,7 +6,7 @@ poetry run python -m lightrag.api.lightrag_server &
 BACKEND_PID=$!
 
 # Wait a few seconds for the backend to initialize
-sleep 3
+sleep 2
 
 # Navigate to the frontend directory
 echo "Navigating to frontend directory..."

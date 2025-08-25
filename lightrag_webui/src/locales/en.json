@@ -132,7 +132,8 @@
         "created": "Created",
         "updated": "Updated",
         "metadata": "Metadata",
-        "select": "Select"
+        "select": "Select",
+        "selectAll": "Select All"
       },
       "status": {
         "all": "All",

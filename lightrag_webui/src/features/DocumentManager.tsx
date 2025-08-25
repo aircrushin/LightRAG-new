@@ -276,6 +276,36 @@ export default function DocumentManager() {
     return allDocuments;
   }, [docs, sortField, sortDirection, statusFilter, sortDocuments]);
 
+  // Handle select all documents
+  const handleSelectAll = useCallback((checked: boolean) => {
+    if (checked) {
+      // Select all visible documents
+      const allVisibleDocIds = filteredAndSortedDocs?.map(doc => doc.id) || []
+      setSelectedDocIds(allVisibleDocIds)
+    } else {
+      // Deselect all documents
+      setSelectedDocIds([])
+    }
+  }, [filteredAndSortedDocs])
+
+  // Calculate select all checkbox state
+  const selectAllState = useMemo(() => {
+    if (!filteredAndSortedDocs || filteredAndSortedDocs.length === 0) {
+      return { checked: false, indeterminate: false }
+    }
+
+    const visibleDocIds = filteredAndSortedDocs.map(doc => doc.id)
+    const selectedVisibleDocs = selectedDocIds.filter(id => visibleDocIds.includes(id))
+    
+    if (selectedVisibleDocs.length === 0) {
+      return { checked: false, indeterminate: false }
+    } else if (selectedVisibleDocs.length === visibleDocIds.length) {
+      return { checked: true, indeterminate: false }
+    } else {
+      return { checked: false, indeterminate: true }
+    }
+  }, [filteredAndSortedDocs, selectedDocIds])
+
   // Calculate document counts for each status
   const documentCounts = useMemo(() => {
     if (!docs) return { all: 0 } as Record<string, number>;
@@ -695,7 +725,25 @@ export default function DocumentManager() {
                           </div>
                         </TableHead>
                         <TableHead className="w-16 text-center">
-                          {t('documentPanel.documentManager.columns.select')}
+                          <div className="flex flex-col items-center gap-1">
+                            <Checkbox
+                              checked={selectAllState.checked}
+                              ref={(ref) => {
+                                if (ref) {
+                                  const inputElement = ref.querySelector('input[type="checkbox"]') as HTMLInputElement
+                                  if (inputElement) {
+                                    inputElement.indeterminate = selectAllState.indeterminate
+                                  }
+                                }
+                              }}
+                              onCheckedChange={handleSelectAll}
+                              className="mx-auto"
+                              disabled={!filteredAndSortedDocs || filteredAndSortedDocs.length === 0}
+                            />
+                            {/* <span className="text-xs">
+                              {t('documentPanel.documentManager.columns.selectAll')}
+                            </span> */}
+                          </div>
                         </TableHead>
                       </TableRow>
                     </TableHeader>

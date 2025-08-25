@@ -132,7 +132,8 @@
         "created": "Créé",
         "updated": "Mis à jour",
         "metadata": "Métadonnées",
-        "select": "Sélectionner"
+        "select": "Sélectionner",
+        "selectAll": "Tout sélectionner"
       },
       "status": {
         "all": "Tous",

@@ -133,7 +133,8 @@
         "created": "创建时间",
         "updated": "更新时间",
         "metadata": "元数据",
-        "select": "选择"
+        "select": "选择",
+        "selectAll": "全选"
       },
       "status": {
         "all": "全部",

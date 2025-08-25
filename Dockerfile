@@ -3,23 +3,13 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# 先彻底清理原有源
-RUN rm -f /etc/apt/sources.list && \
-    rm -rf /etc/apt/sources.list.d/ && \
-    echo "deb https://mirrors.aliyun.com/debian bullseye main non-free contrib" > /etc/apt/sources.list && \
-    echo "deb https://mirrors.aliyun.com/debian-security bullseye-security main" >> /etc/apt/sources.list && \
-    echo "deb https://mirrors.aliyun.com/debian bullseye-updates main non-free contrib" >> /etc/apt/sources.list
-
-# Install Rust and required build dependenciesc
-RUN apt-get update
-
-RUN apt-get install -y \
+# Install Rust and required build dependencies
+RUN apt-get update && apt-get install -y \
     curl \
     build-essential \
     pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN  curl --proto '=https' --tlsv1.2 -sSf https://rsproxy.cn/rustup-init.sh | sh -s -- -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && . $HOME/.cargo/env
 
 # Copy pyproject.toml and source code for dependency installation
